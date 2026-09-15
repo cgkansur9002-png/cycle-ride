@@ -51,10 +51,11 @@
     .sidebar{ width:400px; background:var(--bg-card); border-right:1px solid var(--border-color); display:flex; flex-direction:column; height:100%; }
     .control-panel{ padding:12px; background:var(--bg-panel); border-bottom:1px solid var(--border-color); flex-shrink:0; }
     .metrics-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    .stat-card{ background:#f8fafc; border-radius:10px; padding:10px; border:1px solid var(--border-color); }
+    .stat-card{ background:#f8fafc; border-radius:10px; padding:10px; border:1px solid var(--border-color); transition: all 0.3s ease; }
     .stat-card.green{ border-color:#86efac; background:#f0fdf4; }
+    .stat-card.red{ border-color:#fca5a5; background:#fef2f2; }
     .stat-label{ font-size:.6rem; color:var(--text-sub); font-weight:700; text-transform:uppercase; }
-    .stat-value{ font-size:1rem; font-weight:800; margin-top:2px; color:#0f172a; }
+    .stat-value{ font-size:.9rem; font-weight:800; margin-top:2px; color:#0f172a; word-break:break-word; }
 
     .gps-toggle-btn{
       background:#0284c7; color:white; padding:12px; border-radius:10px; width:100%;
@@ -292,6 +293,78 @@
       `);
     }
 
+    // --- UPDATED SCHEDULE STATUS CALCULATOR ---
+    function updateScheduleStatusDisplay() {
+      const statusCard = document.getElementById('status-card');
+      const delayText = document.getElementById('delay-text');
+
+      // Find the latest reached/arrived waypoint or current target waypoint
+      let targetIndex = currentWaypointIndex;
+      let activeState = waypointsState[targetIndex] || {};
+      
+      // If current waypoint isn't arrived yet, check previous completed waypoints to find delay
+      let checkIdx = targetIndex;
+      if (!activeState.arrived && targetIndex > 0) {
+        for (let i = targetIndex - 1; i >= 0; i--) {
+          if (waypointsState[i] && waypointsState[i].arrived) {
+            checkIdx = i;
+            activeState = waypointsState[i];
+            break;
+          }
+        }
+      }
+
+      const scheduledTimeStr = routeData[checkIdx].time; // e.g. "16:00"
+      const actualArrivalStr = activeState.arrived;     // e.g. "18:44"
+
+      if (!actualArrivalStr) {
+        // If no waypoint is marked arrived yet, check against real-time clock vs scheduled time of current waypoint
+        const [schH, schM] = scheduledTimeStr.split(':').map(Number);
+        const schTotalMins = schH * 60 + schM;
+        
+        const now = new Date();
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+        const diffMins = currentMins - schTotalMins;
+
+        if (diffMins > 10) {
+          statusCard.className = 'stat-card red';
+          const hrs = Math.floor(diffMins / 60);
+          const mins = diffMins % 60;
+          delayText.innerHTML = `⚠️ ${hrs > 0 ? hrs + 'h ' : ''}${mins}m LATE`;
+        } else if (diffMins < -5) {
+          statusCard.className = 'stat-card green';
+          const earlyMins = Math.abs(diffMins);
+          delayText.innerHTML = `⚡ ${earlyMins}m EARLY`;
+        } else {
+          statusCard.className = 'stat-card';
+          delayText.innerHTML = "ON TIME";
+        }
+        return;
+      }
+
+      // Calculate delay based on Actual Arrival vs Scheduled Time
+      const [schH, schM] = scheduledTimeStr.split(':').map(Number);
+      const [actH, actM] = actualArrivalStr.split(':').map(Number);
+
+      const schTotalMins = schH * 60 + schM;
+      const actTotalMins = actH * 60 + actM;
+      const diffMins = actTotalMins - schTotalMins;
+
+      if (diffMins > 10) {
+        statusCard.className = 'stat-card red';
+        const hrs = Math.floor(diffMins / 60);
+        const mins = diffMins % 60;
+        delayText.innerHTML = `⚠️ ${hrs > 0 ? hrs + 'h ' : ''}${mins}m LATE`;
+      } else if (diffMins < -5) {
+        statusCard.className = 'stat-card green';
+        const earlyMins = Math.abs(diffMins);
+        delayText.innerHTML = `⚡ ${earlyMins}m EARLY`;
+      } else {
+        statusCard.className = 'stat-card';
+        delayText.innerHTML = "ON TIME";
+      }
+    }
+
     function toggleLiveRiderGPS() {
       const btn = document.getElementById('gps-btn');
 
@@ -388,7 +461,6 @@
                 ${!state.arrived ? `<button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">📍 ARRIVED NOW</button>` : ''}
                 ${state.arrived && !state.left ? `<button class="action-btn btn-left" onclick="handleAdminAction(${idx}, 'left')">🚀 LEFT NOW</button>` : ''}
                 
-                <!-- PHOTO UPLOAD BUTTON: SHOWN ONLY AFTER ARRIVED -->
                 ${state.arrived ? `<button class="action-btn btn-photo" onclick="triggerPhotoUpload(${idx})">📷 ADD PHOTOS</button>` : ''}
               </div>
             ` : ''}
@@ -396,6 +468,9 @@
         `;
         container.appendChild(item);
       });
+
+      // Update schedule status block whenever timeline updates
+      updateScheduleStatusDisplay();
     }
 
     function togglePhotoVisibility(index) {
