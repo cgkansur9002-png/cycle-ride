@@ -51,7 +51,6 @@
     .control-panel{ padding:14px; background:var(--bg-panel); border-bottom:1px solid var(--border-color); flex-shrink:0; }
     .metrics-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     .stat-card{ background:#1a263d; border-radius:12px; padding:14px; border:1px solid var(--border-color); }
-    .stat-card.delayed{ border-color:var(--accent-red); }
     .stat-card.green{ border-color:var(--accent-green); }
     .stat-label{ font-size:.65rem; color:var(--text-sub); font-weight:700; text-transform:uppercase; }
     .stat-value{ font-size:1.15rem; font-weight:800; margin-top:4px; color:white; }
@@ -82,20 +81,13 @@
     .photo-card-item{ flex:0 0 140px; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,.15); background:#0d1526; display:flex; flex-direction:column; }
     .stop-photo{ width:100%; height:100px; object-fit:cover; display:block; cursor:pointer; }
     .photo-actions-bar{ display:flex; border-top:1px solid var(--border-color); }
-    .photo-btn-action{ flex:1; background:rgba(0,0,0,0.75); color:#38bdf8; font-size:.68rem; font-weight:700; padding:6px 4px; text-align:center; border:none; cursor:pointer; }
-    .photo-btn-action.btn-del-photo{ color:#ef4444; border-left:1px solid var(--border-color); }
-
-    .telemetry-box{ margin-top:10px; padding-top:8px; border-top:1px dashed rgba(255,255,255,.10); display:flex; flex-direction:column; gap:4px; font-size:.78rem; }
-    .tele-tag.arrived{ color:#22c55e; font-weight:700; }
-    .tele-tag.left{ color:#f59e0b; font-weight:700; }
-    .tele-tag.spent{ color:#38bdf8; font-weight:700; }
+    .photo-btn-action{ flex:1; background:rgba(0,0,0,0.75); color:#ef4444; font-size:.68rem; font-weight:700; padding:6px 4px; text-align:center; border:none; cursor:pointer; }
 
     .btn-wrap{ display:flex; gap:8px; margin-top:10px; }
     .action-btn{ flex:1; border:none; border-radius:8px; padding:10px; color:white; font-weight:800; cursor:pointer; font-size:.78rem; }
     .btn-arrive{ background:#059669; }
     .btn-left{ background:#d97706; }
     .btn-photo{ background:#6d28d9; }
-    .travel-connector{ font-size:.72rem; color:#c084fc; font-weight:700; padding:2px 0 8px 28px; }
 
     .map-container{ flex:1; position:relative; height:100%; }
     #map{ width:100%; height:100%; background:#111; }
@@ -107,7 +99,7 @@
       header{ padding:8px 12px; }
       .brand-title h1{ font-size:.9rem; }
       .dashboard-container{ flex-direction:column; height:calc(100vh - 75px); }
-      .map-container{ height:32vh; min-height:180px; flex:none; }
+      .map-container{ height:35vh; min-height:200px; flex:none; }
       .sidebar{ width:100%; flex:1; border-right:none; border-top:2px solid var(--accent-blue); }
       .timeline-container{ padding:12px 10px; }
     }
@@ -202,7 +194,7 @@
 
     let currentWaypointIndex = 0;
     let waypointsState = {}; 
-    let map, cycleMarker;
+    let map, cycleMarker, routePolyline;
     let mapMarkers = [];
     let watchId = null;
     let selectedIndexForPhoto = null;
@@ -216,11 +208,29 @@
       map = L.map('map', { maxZoom: 19 }).setView([routeData[0].lat, routeData[0].lng], 14);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
+      // Extract LatLng points to draw continuous route line
+      const latLngPoints = routeData.map(pt => [pt.lat, pt.lng]);
+
+      // DRAW ROAD ROUTE POLYLINE (CYAN/BLUE LINE)
+      routePolyline = L.polyline(latLngPoints, {
+        color: '#0284c7',
+        weight: 5,
+        opacity: 0.8,
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(map);
+
+      // Fit map view to cover all waypoints
+      map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
+
+      // Add location pins for each stop
       routeData.forEach((pt, index) => {
-        const marker = L.marker([pt.lat, pt.lng], { icon: createPinIcon('#64748b') }).addTo(map);
+        const marker = L.marker([pt.lat, pt.lng], { icon: createPinIcon('#38bdf8') }).addTo(map);
+        marker.bindPopup(`<b>${index + 1}. ${pt.name}</b><br>Time: ${pt.time}`);
         mapMarkers.push(marker);
       });
 
+      // Rider Marker
       const cycleIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚴‍♂️', iconSize: [32, 32], iconAnchor: [16, 16] });
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: cycleIcon }).addTo(map);
     }
