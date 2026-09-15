@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-1.0, user-scalable=no">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Sirsi Ganpati Darshan Live Tracker</title>
   
@@ -131,7 +131,7 @@
       100%{ transform:translateX(-100%); }
     }
 
-    /* LAYOUT */
+    /* DESKTOP LAYOUT (UNTOUCHED) */
     .dashboard-container{
       display:flex;
       flex:1;
@@ -411,26 +411,117 @@
       filter:drop-shadow(0 3px 6px rgba(0,0,0,.50));
     }
 
-    /* MOBILE */
+    /* HIGH OPTIMIZED MOBILE STYLING (MAX-WIDTH: 768PX) */
     @media(max-width:768px){
-      .dashboard-container{
-        flex-direction:column-reverse;
-      }
-      .sidebar{
-        width:100%;
-        height:50%;
-      }
-      .map-container{
-        height:50%;
+      header{
+        padding:10px 14px;
       }
       .brand-title h1{
-        font-size:.9rem;
+        font-size:.95rem;
       }
       .brand-badge{
-        font-size:.75rem;
+        font-size:.7rem;
+        padding:6px 10px;
+        border-radius:8px;
+      }
+      .status-badge{
+        font-size:.7rem;
+        padding:6px 10px;
+      }
+
+      .hero-status-bar{
+        padding:8px 0;
       }
       .marquee-track{
-        font-size:.85rem;
+        font-size:.8rem;
+      }
+
+      .dashboard-container{
+        flex-direction:column;
+        height:calc(100vh - 85px);
+      }
+
+      /* TOP MAP VIEW FOR MOBILE */
+      .map-container{
+        height:38vh;
+        min-height:220px;
+        flex:none;
+      }
+
+      .map-container::after{
+        top:10px;
+        right:10px;
+        font-size:.65rem;
+        padding:6px 12px;
+      }
+
+      /* BOTTOM TIMELINE & CONTROLS FOR MOBILE */
+      .sidebar{
+        width:100%;
+        flex:1;
+        border-right:none;
+        border-top:2px solid rgba(56,189,248,.3);
+        overflow:hidden;
+      }
+
+      .control-panel{
+        padding:12px;
+      }
+
+      .metrics-grid{
+        gap:8px;
+      }
+
+      .stat-card{
+        padding:12px;
+        border-radius:14px;
+      }
+
+      .stat-label{
+        font-size:.65rem;
+      }
+
+      .stat-value{
+        font-size:1.2rem;
+      }
+
+      .timeline-container{
+        padding:14px 12px;
+      }
+
+      .timeline-item{
+        padding-left:26px;
+        padding-bottom:16px;
+      }
+
+      .timeline-node{
+        left:1px;
+        width:14px;
+        height:14px;
+      }
+
+      .timeline-card{
+        padding:12px;
+        border-radius:14px;
+      }
+
+      .place-name{
+        font-size:.9rem;
+      }
+
+      .stop-photo{
+        max-height:150px;
+      }
+
+      .action-btn{
+        padding:12px 8px;
+        font-size:.8rem;
+        border-radius:8px;
+      }
+
+      .travel-connector{
+        padding:2px 0 8px 26px;
+        font-size:.7rem;
       }
     }
   </style>
@@ -454,6 +545,10 @@
   </div>
 
   <div class="dashboard-container">
+    <div class="map-container">
+      <div id="map"></div>
+    </div>
+
     <div class="sidebar">
       <div class="control-panel">
         <div class="metrics-grid">
@@ -469,10 +564,6 @@
       </div>
 
       <div class="timeline-container" id="timeline"></div>
-    </div>
-
-    <div class="map-container">
-      <div id="map"></div>
     </div>
   </div>
 
@@ -740,7 +831,6 @@
                 ${isCurrentSpot && arrivedTime && !leftTime ? `<button class="action-btn btn-left" onclick="handleAdminAction(${idx}, 'left')">LEFT NOW</button>` : ''}
                 ${!isCurrentSpot && waypointsState[idx - 1]?.left && !arrivedTime ? `<button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">ARRIVED NOW</button>` : ''}
                 
-                ${/* PHOTO BUTTON IS ONLY SHOWN AFTER ARRIVED */''}
                 ${arrivedTime ? `
                   <button class="action-btn btn-photo" onclick="triggerPhotoUpload(${idx})">${photoUrl ? '📷 CHANGE PHOTO' : '📷 ADD PHOTO'}</button>
                 ` : ''}
@@ -797,7 +887,6 @@
           db.ref(`liveTrack/waypoints/${selectedIndexForPhoto}/photo`).set(base64Image);
           selectedIndexForPhoto = null;
           
-          // Clear input so same image can be re-selected if needed
           e.target.value = '';
         };
         img.src = event.target.result;
