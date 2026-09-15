@@ -937,7 +937,12 @@ function animateCycle(startPoint, endPoint) {
         updateDelayUI(data.delayMins || 0);
 
         const currentPt = routeData[currentWaypointIndex];
-        cycleMarker.setLatLng([currentPt.lat, currentPt.lng]);
+        if (!travelAnimation) {
+  cycleMarker.setLatLng([
+    currentPt.lat,
+    currentPt.lng
+  ]);
+}
         map.panTo([currentPt.lat, currentPt.lng]);
 
         updateHeroStatusBanner();
