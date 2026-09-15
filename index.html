@@ -385,7 +385,9 @@
               <div class="btn-wrap">
                 ${!state.arrived ? `<button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">ARRIVED NOW</button>` : ''}
                 ${state.arrived && !state.left ? `<button class="action-btn btn-left" onclick="handleAdminAction(${idx}, 'left')">LEFT NOW</button>` : ''}
-                <button class="action-btn btn-photo" onclick="triggerPhotoUpload(${idx})">📷 ADD PHOTOS</button>
+                
+                <!-- PHOTO UPLOAD BUTTON: SHOWN ONLY AFTER ARRIVED -->
+                ${state.arrived ? `<button class="action-btn btn-photo" onclick="triggerPhotoUpload(${idx})">📷 ADD PHOTOS</button>` : ''}
               </div>
             ` : ''}
           </div>
@@ -452,7 +454,6 @@
       db.ref(`liveTrack/waypoints/${stopIndex}/photos`).set(photos);
     }
 
-    // AUTOMATIC DEVICE TIME SYNC ON BUTTON CLICK
     function handleAdminAction(index, actionType) {
       if (!isAdmin) return;
       
