@@ -910,7 +910,14 @@ function animateCycle(startPoint, endPoint) {
       if (actionType === 'left') {
         nextIndex = Math.min(routeData.length - 1, currentWaypointIndex + 1);
       }
+      if (actionType === 'left' &&
+    currentWaypointIndex < routeData.length - 1) {
 
+    animateCycle(
+      routeData[currentWaypointIndex],
+      routeData[currentWaypointIndex + 1]
+    );
+}
       db.ref('liveTrack').set({
         index: nextIndex,
         delayMins: diffMins,
