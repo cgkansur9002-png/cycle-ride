@@ -43,8 +43,28 @@
     .status-badge { font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; background: rgba(46, 204, 113, 0.15); color: var(--accent-green); border: 1px solid rgba(46, 204, 113, 0.3); }
     .status-badge.admin-mode { background: rgba(248, 113, 113, 0.15); color: var(--accent-red); border-color: rgba(248, 113, 113, 0.3); }
 
+    /* Live Announcement Banner */
+    .hero-status-bar {
+      background: linear-gradient(90deg, #1e1b4b, #312e81, #1e1b4b);
+      border-bottom: 2px solid var(--accent-blue);
+      padding: 10px 16px;
+      text-align: center;
+      font-weight: 800;
+      font-size: 0.95rem;
+      letter-spacing: 0.3px;
+      color: #38bdf8;
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+      animation: pulse-glow 3s infinite ease-in-out;
+      z-index: 9;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { border-bottom-color: var(--accent-blue); }
+      50% { border-bottom-color: var(--accent-green); }
+    }
+
     /* Layout */
-    .dashboard-container { display: flex; flex: 1; height: calc(100vh - 61px); }
+    .dashboard-container { display: flex; flex: 1; height: calc(100vh - 105px); }
     .sidebar { width: 400px; background-color: var(--bg-card); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 5; }
     
     .control-panel { padding: 16px; background-color: var(--bg-panel); border-bottom: 1px solid var(--border-color); }
@@ -89,7 +109,6 @@
     .tele-tag.arrived { color: var(--accent-green); }
     .tele-tag.left { color: var(--accent-amber); }
     .tele-tag.spent { color: var(--accent-blue); }
-    .tele-tag.travel { color: #a855f7; }
 
     /* Action Buttons */
     .btn-wrap { display: flex; gap: 8px; margin-top: 10px; }
@@ -108,9 +127,10 @@
     .custom-pin-icon { display: flex; justify-content: center; align-items: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
 
     @media (max-width: 768px) {
-      .dashboard-container { flex-direction: column-reverse; }
+      .dashboard-container { flex-direction: column-reverse; height: calc(100vh - 105px); }
       .sidebar { width: 100%; height: 50%; }
       .map-container { height: 50%; }
+      .hero-status-bar { font-size: 0.82rem; padding: 8px 10px; }
     }
   </style>
 </head>
@@ -125,6 +145,11 @@
     </div>
     <div id="mode-badge" class="status-badge">● LIVE VIEWER</div>
   </header>
+
+  <!-- Dynamic Passionate Live Status Bar -->
+  <div class="hero-status-bar" id="live-hero-status">
+    🔥 PREPARING FOR LAUNCH: GET READY FOR SIRSI GANPATI DARSHAN RIDE!
+  </div>
 
   <div class="dashboard-container">
     <div class="sidebar">
@@ -231,6 +256,48 @@
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: cycleIcon }).addTo(map);
 
       updatePathLines();
+    }
+
+    function calculateLegDistance(idx1, idx2) {
+      if (idx1 < 0 || idx2 >= routeData.length) return "0.0";
+      const p1 = L.latLng(routeData[idx1].lat, routeData[idx1].lng);
+      const p2 = L.latLng(routeData[idx2].lat, routeData[idx2].lng);
+      return (p1.distanceTo(p2) / 1000).toFixed(2);
+    }
+
+    function updateHeroStatusBanner() {
+      const banner = document.getElementById('live-hero-status');
+      const totalStops = routeData.length;
+      const curSpot = routeData[currentWaypointIndex];
+      const curState = waypointsState[currentWaypointIndex] || {};
+      const lastSpotState = currentWaypointIndex > 0 ? (waypointsState[currentWaypointIndex - 1] || {}) : {};
+      const prevSpot = currentWaypointIndex > 0 ? routeData[currentWaypointIndex - 1] : null;
+
+      // Start Spot (Devikere)
+      if (currentWaypointIndex === 0) {
+        if (curState.arrived) {
+          banner.innerHTML = `⚡ RIDER HAS ARRIVED AT ${curSpot.name.toUpperCase()}! THE DARSHAN RIDE IS LIVE! 🙏`;
+        } else {
+          banner.innerHTML = `🔥 THE JOURNEY BEGINS! RIDER WILL BE AT ${curSpot.name.toUpperCase()} SOON! 🚴‍♂️`;
+        }
+        return;
+      }
+
+      // Final Spot Completed
+      if (currentWaypointIndex === totalStops - 1 && curState.arrived) {
+        banner.innerHTML = `🏆 RIDE COMPLETED! VICTORY AT ${curSpot.name.toUpperCase()}! SHREE GANPATI BAPPA MORYA! 🎉`;
+        return;
+      }
+
+      // In Transit / Arrived at stops
+      if (curState.arrived && !curState.left) {
+        banner.innerHTML = `✨ RIDER HAS ARRIVED AT ${curSpot.name.toUpperCase()}! DARSHAN IN PROGRESS! 🙏`;
+      } else if (prevSpot && lastSpotState.left) {
+        const legDist = calculateLegDistance(currentWaypointIndex - 1, currentWaypointIndex);
+        banner.innerHTML = `🚀 ON THE MOVE! RIDER LEFT ${prevSpot.name.toUpperCase()} — JUST ${legDist} KM AWAY FROM ${curSpot.name.toUpperCase()}! 🚴‍♂️💨`;
+      } else {
+        banner.innerHTML = `🚴‍♂️ RIDER IS SPEEDING TOWARDS ${curSpot.name.toUpperCase()}! STAND BY FOR ARRIVAL! 🔥`;
+      }
     }
 
     function updatePathLines() {
@@ -370,6 +437,7 @@
         cycleMarker.setLatLng([currentPt.lat, currentPt.lng]);
         map.panTo([currentPt.lat, currentPt.lng]);
 
+        updateHeroStatusBanner();
         updatePathLines();
         renderTimeline();
       }
@@ -397,6 +465,7 @@
     window.onload = () => {
       initMap();
       renderTimeline();
+      updateHeroStatusBanner();
     };
   </script>
 </body>
