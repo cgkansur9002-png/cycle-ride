@@ -350,7 +350,7 @@
       // Agar current stop par arrive ho chuka hai par left nahi hua, toh ARRIVED show karo
       if (currentState.arrived && !currentState.left) {
         const arrivedSpotName = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "Sirsi";
-        marqueeEl.innerText = `📍 ARRIVED AT ${arrivedSpotName.toUpperCase()}! 🛑 HALTING / DARSHAN IN PROGRESS | Speed: ${currentSpeed} KM/H`;
+        marqueeEl.innerText = `📍 ARRIVED AT ${arrivedSpotName.toUpperCase()}! 🛑 Ride rebegins after few minutes | Speed: ${currentSpeed} KM/H`;
         return;
       }
 
@@ -370,7 +370,7 @@
         }
       }
 
-      marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! Current Location: ${currentSpot} ➔ Heading to: ${nextSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
+      marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! Current Location: ${currentSpot-1} ➔ Heading to: ${currentSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
     }
 
     function updateScheduleStatusDisplay() {
