@@ -559,7 +559,6 @@
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
 
-      // Lines styled: Thin weight (3px) and translucent opacity (0.65)
       completedPolyline = L.polyline([], { color: '#22c55e', weight: 3, opacity: 0.65 }).addTo(map);
       upcomingPolyline = L.polyline([], { color: '#64748b', weight: 3, opacity: 0.65, dashArray: '5, 5' }).addTo(map);
 
@@ -594,15 +593,10 @@
       const totalStops = routeData.length;
       const curSpot = routeData[currentWaypointIndex];
       const curState = waypointsState[currentWaypointIndex] || {};
-      const lastSpotState = currentWaypointIndex > 0 ? (waypointsState[currentWaypointIndex - 1] || {}) : {};
-      const prevSpot = currentWaypointIndex > 0 ? routeData[currentWaypointIndex - 1] : null;
+      const nextSpot = currentWaypointIndex < totalStops - 1 ? routeData[currentWaypointIndex + 1] : null;
 
-      if (currentWaypointIndex === 0) {
-        if (curState.arrived) {
-          banner.innerHTML = `⚡ RIDER HAS ARRIVED AT ${curSpot.name.toUpperCase()}! THE DARSHAN RIDE IS LIVE! 🙏 &nbsp;&nbsp;•&nbsp;&nbsp; 🔥 SIRSI GANPATI DARSHAN 2026`;
-        } else {
-          banner.innerHTML = `🔥 THE JOURNEY BEGINS! RIDER WILL BE AT ${curSpot.name.toUpperCase()} SOON! 🚴‍♂️ &nbsp;&nbsp;•&nbsp;&nbsp; GET READY!`;
-        }
+      if (currentWaypointIndex === 0 && !curState.arrived) {
+        banner.innerHTML = `🔥 THE JOURNEY BEGINS! RIDER WILL BE AT ${curSpot.name.toUpperCase()} SOON! 🚴‍♂️ &nbsp;&nbsp;•&nbsp;&nbsp; GET READY!`;
         return;
       }
 
@@ -613,9 +607,9 @@
 
       if (curState.arrived && !curState.left) {
         banner.innerHTML = `✨ RIDER HAS ARRIVED AT ${curSpot.name.toUpperCase()}! DARSHAN IN PROGRESS! 🙏 &nbsp;&nbsp;•&nbsp;&nbsp; LIVE UPDATES ACTIVE`;
-      } else if (prevSpot && lastSpotState.left) {
-        const legDist = calculateLegDistance(currentWaypointIndex - 1, currentWaypointIndex);
-        banner.innerHTML = `🚀 ON THE MOVE! RIDER LEFT ${prevSpot.name.toUpperCase()} — JUST ${legDist} KM AWAY FROM ${curSpot.name.toUpperCase()}! 🚴‍♂️💨 &nbsp;&nbsp;•&nbsp;&nbsp; NEXT STOP: ${curSpot.name.toUpperCase()}`;
+      } else if (curState.left && nextSpot) {
+        const legDist = calculateLegDistance(currentWaypointIndex, currentWaypointIndex + 1);
+        banner.innerHTML = `🚀 ON THE MOVE! RIDER LEFT ${curSpot.name.toUpperCase()} — JUST ${legDist} KM AWAY FROM ${nextSpot.name.toUpperCase()}! 🚴‍♂️💨 &nbsp;&nbsp;•&nbsp;&nbsp; NEXT STOP: ${nextSpot.name.toUpperCase()}`;
       } else {
         banner.innerHTML = `🚴‍♂️ RIDER IS SPEEDING TOWARDS ${curSpot.name.toUpperCase()}! STAND BY FOR ARRIVAL! 🔥 &nbsp;&nbsp;•&nbsp;&nbsp; LIVE TRACKING`;
       }
@@ -628,7 +622,6 @@
       let upcomingCoords = [];
 
       for (let i = 0; i < legPaths.length; i++) {
-        // Draw green for legs where target stop is ALREADY ARRIVED
         if (isPointArrived(i + 1)) {
           completedCoords.push(...legPaths[i]);
         } else {
@@ -707,6 +700,12 @@
                 ${arrivedTime && !leftTime ? `<button class="action-btn btn-left" onclick="handleAdminAction(${idx}, 'left')">LEFT NOW</button>` : ''}
               </div>
             ` : ''}
+
+            ${isAdmin && !isCurrentSpot && waypointsState[idx - 1]?.left && !arrivedTime ? `
+              <div class="btn-wrap">
+                <button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">ARRIVED NOW</button>
+              </div>
+            ` : ''}
           </div>
         `;
 
@@ -744,13 +743,14 @@
 
       const diffMins = Math.round((now - scheduledDate) / 60000);
 
-      let nextIndex = currentWaypointIndex;
-      if (actionType === 'left') {
-        nextIndex = Math.min(routeData.length - 1, currentWaypointIndex + 1);
+      // Index is updated ONLY when arriving at a new stop
+      let targetIndex = currentWaypointIndex;
+      if (actionType === 'arrive') {
+        targetIndex = index;
       }
 
       db.ref('liveTrack').set({
-        index: nextIndex,
+        index: targetIndex,
         delayMins: diffMins,
         lastUpdated: timeString,
         waypoints: {
@@ -803,5 +803,4 @@
     };
   </script>
 </body>
-</html>
 </html>
