@@ -286,6 +286,28 @@
       font-size:.8rem;
     }
 
+    /* PHOTO PREVIEW STYLING */
+    .stop-photo-container{
+      margin-top:12px;
+      border-radius:12px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.15);
+      position:relative;
+    }
+
+    .stop-photo{
+      width:100%;
+      max-height:180px;
+      object-fit:cover;
+      display:block;
+      cursor:pointer;
+      transition:.3s;
+    }
+
+    .stop-photo:hover{
+      transform:scale(1.03);
+    }
+
     /* TELEMETRY */
     .telemetry-box{
       margin-top:12px;
@@ -308,12 +330,14 @@
     /* BUTTONS */
     .btn-wrap{
       display:flex;
+      flex-wrap:wrap;
       gap:8px;
       margin-top:12px;
     }
 
     .action-btn{
       flex:1;
+      min-width:110px;
       border:none;
       border-radius:10px;
       padding:10px;
@@ -321,6 +345,7 @@
       font-weight:800;
       cursor:pointer;
       transition:.25s;
+      font-size:.8rem;
     }
 
     .action-btn:hover{
@@ -333,6 +358,10 @@
 
     .btn-left{
       background:linear-gradient(135deg, #f59e0b, #d97706);
+    }
+
+    .btn-photo{
+      background:linear-gradient(135deg, #8b5cf6, #6d28d9);
     }
 
     .travel-connector{
@@ -447,6 +476,9 @@
     </div>
   </div>
 
+  <!-- HIDDEN FILE INPUT FOR ADMIN PHOTO UPLOAD -->
+  <input type="file" id="photo-file-input" accept="image/*" style="display:none;">
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -495,6 +527,7 @@
     let mapMarkers = [];
     let completedPolyline, upcomingPolyline;
     let legPaths = []; 
+    let selectedIndexForPhoto = null;
 
     function createPinIcon(color) {
       const svgPin = `
@@ -670,6 +703,7 @@
         const isCurrentSpot = idx === currentWaypointIndex;
         const arrivedTime = state.arrived || null;
         const leftTime = state.left || null;
+        const photoUrl = state.photo || null;
 
         let timeSpent = calculateTimeDiffMinutes(arrivedTime, leftTime);
         let travelDuration = null;
@@ -686,6 +720,12 @@
             </div>
             <div class="sched-time">Scheduled: <b>${pt.time}</b></div>
 
+            ${photoUrl ? `
+              <div class="stop-photo-container">
+                <img src="${photoUrl}" class="stop-photo" alt="Photo at ${pt.name}" onclick="window.open('${photoUrl}', '_blank')">
+              </div>
+            ` : ''}
+
             ${(arrivedTime || leftTime || timeSpent !== null) ? `
               <div class="telemetry-box">
                 ${arrivedTime ? `<div class="tele-tag arrived">📍 Arrived at: ${arrivedTime}</div>` : ''}
@@ -694,16 +734,12 @@
               </div>
             ` : ''}
 
-            ${isAdmin && isCurrentSpot ? `
+            ${isAdmin ? `
               <div class="btn-wrap">
-                ${!arrivedTime ? `<button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">ARRIVED NOW</button>` : ''}
-                ${arrivedTime && !leftTime ? `<button class="action-btn btn-left" onclick="handleAdminAction(${idx}, 'left')">LEFT NOW</button>` : ''}
-              </div>
-            ` : ''}
-
-            ${isAdmin && !isCurrentSpot && waypointsState[idx - 1]?.left && !arrivedTime ? `
-              <div class="btn-wrap">
-                <button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">ARRIVED NOW</button>
+                ${isCurrentSpot && !arrivedTime ? `<button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">ARRIVED NOW</button>` : ''}
+                ${isCurrentSpot && arrivedTime && !leftTime ? `<button class="action-btn btn-left" onclick="handleAdminAction(${idx}, 'left')">LEFT NOW</button>` : ''}
+                ${!isCurrentSpot && waypointsState[idx - 1]?.left && !arrivedTime ? `<button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">ARRIVED NOW</button>` : ''}
+                <button class="action-btn btn-photo" onclick="triggerPhotoUpload(${idx})">${photoUrl ? '📷 CHANGE PHOTO' : '📷 ADD PHOTO'}</button>
               </div>
             ` : ''}
           </div>
@@ -719,6 +755,51 @@
         }
       });
     }
+
+    // PHOTO UPLOAD HANDLING
+    function triggerPhotoUpload(index) {
+      selectedIndexForPhoto = index;
+      document.getElementById('photo-file-input').click();
+    }
+
+    document.getElementById('photo-file-input').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file || selectedIndexForPhoto === null) return;
+
+      // Compress and convert image to Base64 (max 800px width/height)
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 800;
+
+          if (width > height && width > maxDim) {
+            height *= maxDim / width;
+            width = maxDim;
+          } else if (height > maxDim) {
+            width *= maxDim / height;
+            height = maxDim;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Get compressed Base64 String
+          const base64Image = canvas.toDataURL('image/jpeg', 0.7);
+
+          // Save directly into Firebase for that specific stop
+          db.ref(`liveTrack/waypoints/${selectedIndexForPhoto}/photo`).set(base64Image);
+          selectedIndexForPhoto = null;
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
 
     function handleAdminAction(index, actionType) {
       if (!isAdmin) return;
@@ -743,7 +824,6 @@
 
       const diffMins = Math.round((now - scheduledDate) / 60000);
 
-      // Index is updated ONLY when arriving at a new stop
       let targetIndex = currentWaypointIndex;
       if (actionType === 'arrive') {
         targetIndex = index;
