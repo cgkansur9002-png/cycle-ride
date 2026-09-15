@@ -467,28 +467,26 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // 19 Stop Coordinates in Order
     const routeData = [
       { id: 1, name: "Devikere", time: "16:00", lat: 14.619805, lng: 74.832288 },
       { id: 2, name: "Maratikoppa", time: "16:10", lat: 14.629540, lng: 74.836248 },
       { id: 3, name: "Bapuji Nagar", time: "16:20", lat: 14.624583, lng: 74.840028 },
       { id: 4, name: "Chipgi", time: "16:35", lat: 14.644139, lng: 74.862833 },
       { id: 5, name: "Vivekananda Nagar", time: "16:45", lat: 14.630944, lng: 74.852139 },
-      { id: 6, name: "Ayappa Nagar", time: "16:55", lat: 14.618972, lng: 74.845333 },
+      { id: 6, name: "Ayappa Nagar", time: "16:55", lat: 14.627220, lng: 74.848500 },
       { id: 7, name: "Hanumagiri", time: "17:00", lat: 14.614778, lng: 74.845194 },
       { id: 8, name: "Ambedkar Bhavana", time: "17:05", lat: 14.618100, lng: 74.842500 },
       { id: 9, name: "Kotekere", time: "17:08", lat: 14.615861, lng: 74.840944 },
       { id: 10, name: "Marigudi", time: "17:15", lat: 14.612750, lng: 74.838694 },
       { id: 11, name: "Rayar Pete", time: "17:20", lat: 14.610750, lng: 74.830917 },
       { id: 12, name: "Shivaji Chowk", time: "17:25", lat: 14.614610, lng: 74.833974 },
-      { id: 13, name: "Auto Stand", time: "17:30", lat: 14.615389, lng: 74.834889 },
+      { id: 13, name: "Auto Stand", time: "17:30", lat: 14.614900, lng: 74.834500 },
       { id: 14, name: "Naganjaneya", time: "17:35", lat: 14.614583, lng: 74.835278 },
       { id: 15, name: "Simpi Gulli", time: "17:40", lat: 14.615250, lng: 74.834389 },
       { id: 16, name: "Unnemutt", time: "17:45", lat: 14.617139, lng: 74.832861 },
       { id: 17, name: "Shraddanand Gulli", time: "17:50", lat: 14.616194, lng: 74.832417 },
       { id: 18, name: "Zoo Circle", time: "18:00", lat: 14.618889, lng: 74.826778 },
-      { id: 18, name: "Police Station", time: "18:05", lat: 14.620000, lng: 74.825889 },
-      { id: 19, name: "Raghavendra Circle", time: "18:10", lat: 14.623083, lng: 74.827528 }
+      { id: 19, name: "Raghavendra Circle", time: "18:05", lat: 14.623083, lng: 74.827528 }
     ];
 
     let currentWaypointIndex = 0;
@@ -496,7 +494,6 @@
     let map, cycleMarker;
     let mapMarkers = [];
     let completedPolyline, upcomingPolyline;
-    let fullRoadPath = []; 
     let legPaths = []; 
 
     function createPinIcon(color) {
@@ -508,7 +505,6 @@
       return L.divIcon({ className: 'custom-pin-icon', html: svgPin, iconSize: [24, 32], iconAnchor: [12, 32] });
     }
 
-    // Fetch real road paths using OSRM API
     async function fetchOSRMRoute() {
       const coordString = routeData.map(pt => `${pt.lng},${pt.lat}`).join(';');
       const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson`;
@@ -518,16 +514,11 @@
         const data = await response.json();
 
         if (data.routes && data.routes.length > 0) {
-          const coords = data.routes[0].geometry.coordinates;
-          fullRoadPath = coords.map(c => [c[1], c[0]]); // Swap [lng, lat] to [lat, lng]
-          
-          // Separate into individual legs between stops
           legPaths = [];
           for (let i = 0; i < routeData.length - 1; i++) {
             const startPt = [routeData[i].lat, routeData[i].lng];
             const endPt = [routeData[i + 1].lat, routeData[i + 1].lng];
             
-            // Sub-fetch individual leg for precise snapping
             const legUrl = `https://router.project-osrm.org/route/v1/driving/${startPt[1]},${startPt[0]};${endPt[1]},${endPt[0]}?overview=full&geometries=geojson`;
             const legRes = await fetch(legUrl);
             const legData = await legRes.json();
@@ -543,7 +534,6 @@
           fallbackStraightLines();
         }
       } catch (err) {
-        console.warn("OSRM error, falling back to direct points:", err);
         fallbackStraightLines();
       }
 
@@ -569,11 +559,12 @@
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
 
-      completedPolyline = L.polyline([], { color: '#2ecc71', weight: 5, opacity: 0.95 }).addTo(map);
-      upcomingPolyline = L.polyline([], { color: '#38bdf8', weight: 4, opacity: 0.75, dashArray: '6, 8' }).addTo(map);
+      // Lines styled: Thin weight (3px) and translucent opacity (0.65)
+      completedPolyline = L.polyline([], { color: '#22c55e', weight: 3, opacity: 0.65 }).addTo(map);
+      upcomingPolyline = L.polyline([], { color: '#64748b', weight: 3, opacity: 0.65, dashArray: '5, 5' }).addTo(map);
 
       routeData.forEach((pt, index) => {
-        const pinColor = index < currentWaypointIndex ? '#2ecc71' : '#38bdf8';
+        const pinColor = isPointArrived(index) ? '#22c55e' : '#64748b';
         const marker = L.marker([pt.lat, pt.lng], { icon: createPinIcon(pinColor) })
           .addTo(map)
           .bindPopup(`<div style="color:#000;"><b>${index + 1}. ${pt.name}</b><br>Scheduled: ${pt.time}</div>`);
@@ -585,6 +576,10 @@
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: cycleIcon }).addTo(map);
 
       fetchOSRMRoute();
+    }
+
+    function isPointArrived(index) {
+      return waypointsState[index] && waypointsState[index].arrived;
     }
 
     function calculateLegDistance(idx1, idx2) {
@@ -633,7 +628,8 @@
       let upcomingCoords = [];
 
       for (let i = 0; i < legPaths.length; i++) {
-        if (i < currentWaypointIndex) {
+        // Draw green for legs where target stop is ALREADY ARRIVED
+        if (isPointArrived(i + 1)) {
           completedCoords.push(...legPaths[i]);
         } else {
           upcomingCoords.push(...legPaths[i]);
@@ -644,15 +640,17 @@
       upcomingPolyline.setLatLngs(upcomingCoords);
 
       let distMeters = 0;
-      for (let i = 0; i < currentWaypointIndex; i++) {
-        const p1 = L.latLng(routeData[i].lat, routeData[i].lng);
-        const p2 = L.latLng(routeData[i + 1].lat, routeData[i + 1].lng);
-        distMeters += p1.distanceTo(p2);
+      for (let i = 0; i < routeData.length; i++) {
+        if (isPointArrived(i) && i > 0) {
+          const p1 = L.latLng(routeData[i - 1].lat, routeData[i - 1].lng);
+          const p2 = L.latLng(routeData[i].lat, routeData[i].lng);
+          distMeters += p1.distanceTo(p2);
+        }
       }
       document.getElementById('distance-text').innerText = `${(distMeters / 1000).toFixed(2)} KM`;
 
       routeData.forEach((pt, index) => {
-        const pinColor = index < currentWaypointIndex ? '#2ecc71' : '#38bdf8';
+        const pinColor = isPointArrived(index) ? '#22c55e' : (index === currentWaypointIndex ? '#38bdf8' : '#64748b');
         mapMarkers[index].setIcon(createPinIcon(pinColor));
       });
     }
@@ -673,7 +671,7 @@
         const item = document.createElement('div');
         const state = waypointsState[idx] || {};
 
-        let statusClass = idx < currentWaypointIndex ? 'reached' : (idx === currentWaypointIndex ? 'current' : '');
+        let statusClass = isPointArrived(idx) ? 'reached' : (idx === currentWaypointIndex ? 'current' : '');
         item.className = `timeline-item ${statusClass}`;
 
         const isCurrentSpot = idx === currentWaypointIndex;
@@ -805,4 +803,5 @@
     };
   </script>
 </body>
+</html>
 </html>
