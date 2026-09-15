@@ -260,7 +260,7 @@
       // Main Rider Marker (Chinmay)
       const cycleIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚴‍♂️', iconSize: [32, 32], iconAnchor: [16, 16] });
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: cycleIcon }).addTo(map);
-      updateRiderPopup("Devikere", "Maratikoppa");
+      updateRiderPopup();
 
       // Friend Marker (Nitin)
       const friendIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🛵', iconSize: [32, 32], iconAnchor: [16, 16] });
@@ -309,14 +309,18 @@
       remainingPolyline.setLatLngs(remaining);
     }
 
-    function updateRiderPopup(fromLoc, toLoc) {
+    function updateRiderPopup() {
+      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : (routeData[0] ? routeData[0].name : "Devikere");
+      const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
+      const nextSpot = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
+
       cycleMarker.bindPopup(`
         <div class="rider-popup-card">
           <div class="rider-popup-title">🚴‍♂️ CHINMAY</div>
           <div class="speedometer-badge">⚡ ${currentSpeed} KM/H</div>
           <div style="font-size:0.75rem; color:#475569; margin-top:4px;">
-            <b>Next Destination:</b> ${toLoc || "Destination"}<br/>
-            <b>From:</b> ${fromLoc || "Start"}
+            <b>Next Destination:</b> ${nextSpot}<br/>
+            <b>From:</b> ${currentSpot}
           </div>
         </div>
       `);
@@ -344,7 +348,16 @@
     }
 
     function updateHeroMarquee(currentLat, currentLng) {
-      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "Sirsi";
+      const marqueeEl = document.getElementById('live-hero-status');
+      const currentState = waypointsState[currentWaypointIndex] || {};
+
+      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : (routeData[0] ? routeData[0].name : "Devikere");
+
+      if (currentState.arrived && !currentState.left) {
+        marqueeEl.innerText = `📍 ARRIVED AT ${currentSpot.toUpperCase()}! 🛑 HALTING / DARSHAN IN PROGRESS | Speed: ${currentSpeed} KM/H`;
+        return;
+      }
+
       const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
       const nextSpot = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
       const nextTarget = routeData[nextIndex];
@@ -359,7 +372,6 @@
         }
       }
 
-      const marqueeEl = document.getElementById('live-hero-status');
       marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! Current Location: ${currentSpot} ➔ Heading to: ${nextSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
     }
 
@@ -381,7 +393,7 @@
         }
       }
 
-      const scheduledTimeStr = routeData[checkIdx].time;
+      const scheduledTimeStr = routeData[checkIdx] ? routeData[checkIdx].time : "17:00";
       const actualArrivalStr = activeState.arrived;
 
       if (!actualArrivalStr) {
@@ -467,7 +479,6 @@
       }
     }
 
-    // Friend Live GPS Toggle Function
     function toggleFriendGPS() {
       const btn = document.getElementById('friend-gps-btn');
 
@@ -505,7 +516,6 @@
       }
     }
 
-    // Real-time listener for Rider GPS
     db.ref('liveTrack/currentGPS').on('value', (snapshot) => {
       const gps = snapshot.val();
       if (gps && gps.lat && gps.lng) {
@@ -513,15 +523,11 @@
         currentSpeed = gps.speed || 0;
         cycleMarker.setLatLng(livePos);
 
-        const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "";
-        const nextSpot = routeData[currentWaypointIndex + 1] ? routeData[currentWaypointIndex + 1].name : "Finish";
-        updateRiderPopup(currentSpot, nextSpot);
-
+        updateRiderPopup();
         updateHeroMarquee(gps.lat, gps.lng);
       }
     });
 
-    // Real-time listener for Friend GPS
     db.ref('liveTrack/friendGPS').on('value', (snapshot) => {
       const gps = snapshot.val();
       if (gps && gps.lat && gps.lng) {
@@ -707,9 +713,12 @@
         waypointsState = data.waypoints || {};
         renderTimeline();
         updateDynamicRoadLines();
+        updateRiderPopup();
         
         if (data.currentGPS) {
           updateHeroMarquee(data.currentGPS.lat, data.currentGPS.lng);
+        } else {
+          updateHeroMarquee(null, null);
         }
       }
     });
@@ -718,4 +727,3 @@
   </script>
 </body>
 </html>
-
