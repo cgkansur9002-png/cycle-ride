@@ -690,8 +690,17 @@ header{
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
 
-      completedPolyline = L.polyline([], { color: '#2ecc71', weight: 5, opacity: 0.95 }).addTo(map);
-      upcomingPolyline = L.polyline([], { color: '#38bdf8', weight: 4, opacity: 0.75, dashArray: '6, 8' }).addTo(map);
+      completedPolyline = L.polyline([], {
+  color: '#2563eb',
+  weight: 7,
+  opacity: 1
+}).addTo(map);
+
+upcomingPolyline = L.polyline([], {
+  color: '#64748b',
+  weight: 5,
+  opacity: 0.5
+}).addTo(map);
 
       routeData.forEach((pt, index) => {
         const pinColor = index < currentWaypointIndex ? '#2ecc71' : '#38bdf8';
