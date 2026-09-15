@@ -836,7 +836,44 @@ header{
         }
       });
     }
+let travelAnimation = null;
 
+function animateCycle(startPoint, endPoint) {
+
+  if (travelAnimation) {
+    clearInterval(travelAnimation);
+  }
+
+  let progress = 0;
+  const steps = 100;
+
+  travelAnimation = setInterval(() => {
+
+    progress++;
+
+    const lat =
+      startPoint.lat +
+      ((endPoint.lat - startPoint.lat) * progress / steps);
+
+    const lng =
+      startPoint.lng +
+      ((endPoint.lng - startPoint.lng) * progress / steps);
+
+    cycleMarker.setLatLng([lat, lng]);
+
+    // show travelled part in blue
+
+    completedPolyline.setLatLngs([
+      [startPoint.lat, startPoint.lng],
+      [lat, lng]
+    ]);
+
+    if (progress >= steps) {
+      clearInterval(travelAnimation);
+    }
+
+  }, 100);
+}
     function handleAdminAction(index, actionType) {
       if (!isAdmin) return;
 
