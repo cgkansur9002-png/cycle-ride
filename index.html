@@ -172,7 +172,7 @@
     }
 
     .stat-value{
-      font-size:1.3rem;
+      font-size:1.15rem;
       font-weight:800;
       margin-top:4px;
       color:white;
@@ -291,10 +291,6 @@
 
     .stop-photo-container{
       margin-top:8px;
-      border-radius:10px;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.15);
-      position:relative;
       display:none; /* HIDDEN BY DEFAULT TO SAVE MOBILE SPACE */
     }
 
@@ -302,9 +298,28 @@
       display:block;
     }
 
+    /* MULTI PHOTO GRID HORIZONTAL SCROLL */
+    .photos-gallery-grid{
+      display:flex;
+      gap:8px;
+      overflow-x:auto;
+      padding-bottom:6px;
+      -webkit-overflow-scrolling:touch;
+    }
+
+    .photo-card-item{
+      flex:0 0 140px;
+      border-radius:10px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.15);
+      background:#0d1526;
+      display:flex;
+      flex-direction:column;
+    }
+
     .stop-photo{
       width:100%;
-      max-height:160px;
+      height:100px;
       object-fit:cover;
       display:block;
       cursor:pointer;
@@ -313,14 +328,13 @@
     .photo-download-btn{
       background:rgba(0,0,0,0.75);
       color:#38bdf8;
-      font-size:.72rem;
+      font-size:.68rem;
       font-weight:700;
-      padding:6px 10px;
-      border-radius:6px;
-      margin-top:6px;
-      display:inline-block;
+      padding:5px 6px;
+      text-align:center;
+      display:block;
       text-decoration:none;
-      border:1px solid var(--accent-blue);
+      border-top:1px solid var(--border-color);
     }
 
     /* TELEMETRY */
@@ -440,7 +454,7 @@
       }
 
       .stat-value{
-        font-size:1.1rem;
+        font-size:1.05rem;
       }
 
       .timeline-container{
@@ -497,7 +511,7 @@
     </div>
   </div>
 
-  <input type="file" id="photo-file-input" accept="image/*" capture="environment" style="display:none;">
+  <input type="file" id="photo-file-input" accept="image/*" multiple capture="environment" style="display:none;">
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -709,11 +723,12 @@
       return diff >= 0 ? diff : null;
     }
 
-    // DIRECT DOWNLOAD TRIGGER FOR PHOTO
+    // DIRECT DOWNLOAD TRIGGER WITH PLACE NAME (e.g., Devikere_Ganapati.jpg)
     function downloadPhoto(url, placeName) {
+      const cleanName = placeName.trim().replace(/\s+/g, '_');
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Ganpati_Darshan_${placeName.replace(/\s+/g, '_')}.jpg`;
+      link.download = `${cleanName}_Ganapati.jpg`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -726,10 +741,10 @@
 
       if (container.classList.contains('visible')) {
         container.classList.remove('visible');
-        btn.innerHTML = '📷 Show Photo';
+        btn.innerHTML = '📷 Show Photos';
       } else {
         container.classList.add('visible');
-        btn.innerHTML = '🙈 Hide Photo';
+        btn.innerHTML = '🙈 Hide Photos';
       }
     }
 
@@ -747,7 +762,14 @@
         const isCurrentSpot = idx === currentWaypointIndex;
         const arrivedTime = state.arrived || null;
         const leftTime = state.left || null;
-        const photoUrl = state.photo || null;
+        
+        // Handle single or multiple photos array backward compatibility
+        let photos = [];
+        if (Array.isArray(state.photos)) {
+          photos = state.photos;
+        } else if (state.photo) {
+          photos = [state.photo];
+        }
 
         let timeSpent = calculateTimeDiffMinutes(arrivedTime, leftTime);
         let travelDuration = null;
@@ -764,12 +786,18 @@
             </div>
             <div class="sched-time">Scheduled: <b>${pt.time}</b></div>
 
-            ${photoUrl ? `
+            ${photos.length > 0 ? `
               <div class="photo-section-wrap">
-                <button id="photo-btn-${idx}" class="photo-toggle-btn" onclick="togglePhotoVisibility(${idx})">📷 Show Photo</button>
+                <button id="photo-btn-${idx}" class="photo-toggle-btn" onclick="togglePhotoVisibility(${idx})">📷 Show Photos (${photos.length})</button>
                 <div id="photo-box-${idx}" class="stop-photo-container">
-                  <img src="${photoUrl}" class="stop-photo" alt="Photo at ${pt.name}" onclick="downloadPhoto('${photoUrl}', '${pt.name}')">
-                  <a href="javascript:void(0)" class="photo-download-btn" onclick="downloadPhoto('${photoUrl}', '${pt.name}')">📥 Download Photo</a>
+                  <div class="photos-gallery-grid">
+                    ${photos.map(pUrl => `
+                      <div class="photo-card-item">
+                        <img src="${pUrl}" class="stop-photo" alt="Photo at ${pt.name}" onclick="downloadPhoto('${pUrl}', '${pt.name}')">
+                        <a href="javascript:void(0)" class="photo-download-btn" onclick="downloadPhoto('${pUrl}', '${pt.name}')">📥 Download</a>
+                      </div>
+                    `).join('')}
+                  </div>
                 </div>
               </div>
             ` : ''}
@@ -789,7 +817,7 @@
                 ${!isCurrentSpot && waypointsState[idx - 1]?.left && !arrivedTime ? `<button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">ARRIVED NOW</button>` : ''}
                 
                 ${arrivedTime ? `
-                  <button class="action-btn btn-photo" onclick="triggerPhotoUpload(${idx})">${photoUrl ? '📷 CHANGE PHOTO' : '📷 ADD PHOTO'}</button>
+                  <button class="action-btn btn-photo" onclick="triggerPhotoUpload(${idx})">📷 ADD PHOTOS</button>
                 ` : ''}
               </div>
             ` : ''}
@@ -812,42 +840,64 @@
       document.getElementById('photo-file-input').click();
     }
 
-    document.getElementById('photo-file-input').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file || selectedIndexForPhoto === null) return;
+    // HANDLES MULTIPLE PHOTOS UPLOADING & COMPRESSION
+    document.getElementById('photo-file-input').addEventListener('change', async function(e) {
+      const files = Array.from(e.target.files);
+      if (!files.length || selectedIndexForPhoto === null) return;
 
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const img = new Image();
-        img.onload = function() {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          const maxDim = 800;
+      const idx = selectedIndexForPhoto;
+      const state = waypointsState[idx] || {};
+      let existingPhotos = [];
+      
+      if (Array.isArray(state.photos)) {
+        existingPhotos = [...state.photos];
+      } else if (state.photo) {
+        existingPhotos = [state.photo];
+      }
 
-          if (width > height && width > maxDim) {
-            height *= maxDim / width;
-            width = maxDim;
-          } else if (height > maxDim) {
-            width *= maxDim / height;
-            height = maxDim;
-          }
+      for (let file of files) {
+        const base64Str = await compressImage(file);
+        existingPhotos.push(base64Str);
+      }
 
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
+      db.ref(`liveTrack/waypoints/${idx}/photos`).set(existingPhotos);
+      db.ref(`liveTrack/waypoints/${idx}/photo`).remove(); // cleanup old single photo ref
 
-          const base64Image = canvas.toDataURL('image/jpeg', 0.7);
-
-          db.ref(`liveTrack/waypoints/${selectedIndexForPhoto}/photo`).set(base64Image);
-          selectedIndexForPhoto = null;
-          e.target.value = '';
-        };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
+      selectedIndexForPhoto = null;
+      e.target.value = '';
     });
+
+    function compressImage(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const img = new Image();
+          img.onload = function() {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const maxDim = 800;
+
+            if (width > height && width > maxDim) {
+              height *= maxDim / width;
+              width = maxDim;
+            } else if (height > maxDim) {
+              width *= maxDim / height;
+              height = maxDim;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
 
     function handleAdminAction(index, actionType) {
       if (!isAdmin) return;
@@ -904,16 +954,27 @@
       }
     });
 
+    // FORMAT MINUTES TO HOURS & MINUTES SMART FORMAT
+    function formatMinutesToHours(mins) {
+      const absMins = Math.abs(mins);
+      if (absMins < 60) {
+        return `${absMins} MINS`;
+      }
+      const hrs = Math.floor(absMins / 60);
+      const remainingMins = absMins % 60;
+      return remainingMins > 0 ? `${hrs} HR ${remainingMins} MINS` : `${hrs} HR`;
+    }
+
     function updateDelayUI(diffMins) {
       const delayText = document.getElementById('delay-text');
       const delayCard = document.getElementById('status-card');
 
       if (diffMins > 0) {
-        delayText.innerText = `+${diffMins} MINS`;
+        delayText.innerText = `+${formatMinutesToHours(diffMins)}`;
         delayText.style.color = 'var(--accent-red)';
         delayCard.classList.add('delayed');
       } else if (diffMins < 0) {
-        delayText.innerText = `${Math.abs(diffMins)} MINS AHEAD`;
+        delayText.innerText = `${formatMinutesToHours(diffMins)} AHEAD`;
         delayText.style.color = 'var(--accent-green)';
         delayCard.classList.remove('delayed');
       } else {
