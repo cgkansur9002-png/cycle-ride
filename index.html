@@ -257,12 +257,10 @@
         mapMarkers.push(marker);
       });
 
-      // Main Rider Marker (Chinmay)
       const cycleIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚴‍♂️', iconSize: [32, 32], iconAnchor: [16, 16] });
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: cycleIcon }).addTo(map);
       updateRiderPopup();
 
-      // Friend Marker (Nitin)
       const friendIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🛵', iconSize: [32, 32], iconAnchor: [16, 16] });
       friendMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: friendIcon }).addTo(map);
       updateFriendPopup();
@@ -350,7 +348,6 @@
     function updateHeroMarquee(currentLat, currentLng) {
       const marqueeEl = document.getElementById('live-hero-status');
       const currentState = waypointsState[currentWaypointIndex] || {};
-
       const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : (routeData[0] ? routeData[0].name : "Devikere");
 
       if (currentState.arrived && !currentState.left) {
@@ -372,7 +369,19 @@
         }
       }
 
-      marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! MOVING TOWARDS ➔ ${currentSpot} | Speed: ${currentSpeed} KM/H`;
+      marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! MOVING TOWARDS ➔ ${nextSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
+    }
+
+    function formatTimeDifference(diffMins) {
+      const hrs = Math.floor(Math.abs(diffMins) / 60);
+      const mins = Math.abs(diffMins) % 60;
+      if (hrs > 0 && mins > 0) {
+        return `${hrs}h ${mins}m`;
+      } else if (hrs > 0) {
+        return `${hrs}h`;
+      } else {
+        return `${mins}m`;
+      }
     }
 
     function updateScheduleStatusDisplay() {
@@ -406,13 +415,10 @@
 
         if (diffMins > 10) {
           statusCard.className = 'stat-card red';
-          const hrs = Math.floor(diffMins / 60);
-          const mins = diffMins % 60;
-          delayText.innerHTML = `⚠️ ${hrs > 0 ? hrs + 'h ' : ''}${mins}m LATE`;
+          delayText.innerHTML = `⚠️ ${formatTimeDifference(diffMins)} LATE`;
         } else if (diffMins < -5) {
           statusCard.className = 'stat-card green';
-          const earlyMins = Math.abs(diffMins);
-          delayText.innerHTML = `⚡ ${earlyMins}m EARLY`;
+          delayText.innerHTML = `⚡ ${formatTimeDifference(diffMins)} EARLY`;
         } else {
           statusCard.className = 'stat-card';
           delayText.innerHTML = "ON TIME";
@@ -429,13 +435,10 @@
 
       if (diffMins > 10) {
         statusCard.className = 'stat-card red';
-        const hrs = Math.floor(diffMins / 60);
-        const mins = diffMins % 60;
-        delayText.innerHTML = `⚠️ ${hrs > 0 ? hrs + 'h ' : ''}${mins}m LATE`;
+        delayText.innerHTML = `⚠️ ${formatTimeDifference(diffMins)} LATE`;
       } else if (diffMins < -5) {
         statusCard.className = 'stat-card green';
-        const earlyMins = Math.abs(diffMins);
-        delayText.innerHTML = `⚡ ${earlyMins}m EARLY`;
+        delayText.innerHTML = `⚡ ${formatTimeDifference(diffMins)} EARLY`;
       } else {
         statusCard.className = 'stat-card';
         delayText.innerHTML = "ON TIME";
@@ -444,31 +447,18 @@
 
     function toggleLiveRiderGPS() {
       const btn = document.getElementById('gps-btn');
-
-      if (!navigator.geolocation) {
-        alert("GPS permission not supported in your browser.");
-        return;
-      }
+      if (!navigator.geolocation) { alert("GPS not supported"); return; }
 
       if (watchId === null) {
         watchId = navigator.geolocation.watchPosition(
           (position) => {
             const { latitude, longitude, speed } = position.coords;
             currentSpeed = speed ? (speed * 3.6).toFixed(1) : 0;
-
-            db.ref('liveTrack/currentGPS').set({
-              lat: latitude,
-              lng: longitude,
-              speed: currentSpeed,
-              timestamp: Date.now()
-            });
-
-            btn.innerText = "🛑 STOP RIDER GPS (TRACKING ON)";
+            db.ref('liveTrack/currentGPS').set({ lat: latitude, lng: longitude, speed: currentSpeed, timestamp: Date.now() });
+            btn.innerText = "🛑 STOP RIDER GPS";
             btn.style.background = "#dc2626";
           },
-          (error) => {
-            alert("GPS Error: " + error.message);
-          },
+          (error) => alert("GPS Error: " + error.message),
           { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
         );
       } else {
@@ -481,37 +471,24 @@
 
     function toggleFriendGPS() {
       const btn = document.getElementById('friend-gps-btn');
-
-      if (!navigator.geolocation) {
-        alert("GPS permission not supported in your browser.");
-        return;
-      }
+      if (!navigator.geolocation) { alert("GPS not supported"); return; }
 
       if (friendWatchId === null) {
         friendWatchId = navigator.geolocation.watchPosition(
           (position) => {
             const { latitude, longitude, speed } = position.coords;
             friendSpeed = speed ? (speed * 3.6).toFixed(1) : 0;
-
-            db.ref('liveTrack/friendGPS').set({
-              lat: latitude,
-              lng: longitude,
-              speed: friendSpeed,
-              timestamp: Date.now()
-            });
-
-            btn.innerText = "🛑 STOP FRIEND GPS (TRACKING ON)";
+            db.ref('liveTrack/friendGPS').set({ lat: latitude, lng: longitude, speed: friendSpeed, timestamp: Date.now() });
+            btn.innerText = "🛑 STOP FRIEND GPS";
             btn.style.background = "#dc2626";
           },
-          (error) => {
-            alert("GPS Error: " + error.message);
-          },
+          (error) => alert("GPS Error: " + error.message),
           { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
         );
       } else {
         navigator.geolocation.clearWatch(friendWatchId);
         friendWatchId = null;
-        btn.innerText = "🛵 START RIDER-2 LIVE GPS";
+        btn.innerText = "🛵 START FRIEND LIVE GPS";
         btn.style.background = "#16a34a";
       }
     }
@@ -519,10 +496,8 @@
     db.ref('liveTrack/currentGPS').on('value', (snapshot) => {
       const gps = snapshot.val();
       if (gps && gps.lat && gps.lng) {
-        const livePos = [gps.lat, gps.lng];
         currentSpeed = gps.speed || 0;
-        cycleMarker.setLatLng(livePos);
-
+        cycleMarker.setLatLng([gps.lat, gps.lng]);
         updateRiderPopup();
         updateHeroMarquee(gps.lat, gps.lng);
       }
@@ -531,9 +506,8 @@
     db.ref('liveTrack/friendGPS').on('value', (snapshot) => {
       const gps = snapshot.val();
       if (gps && gps.lat && gps.lng) {
-        const friendPos = [gps.lat, gps.lng];
         friendSpeed = gps.speed || 0;
-        friendMarker.setLatLng(friendPos);
+        friendMarker.setLatLng([gps.lat, gps.lng]);
         updateFriendPopup();
       }
     });
@@ -596,7 +570,7 @@
                       <div class="photo-card-item">
                         <img src="${pUrl}" class="stop-photo" onclick="window.open('${pUrl}', '_blank')">
                         <div class="photo-actions-bar">
-                          <a href="${pUrl}" download="Ganpati_Darshan_${idx}_${pIdx}.jpg" class="photo-btn-action">⬇️ Save</a>
+                          <a href="${pUrl}" download="Photo_${idx}_${pIdx}.jpg" class="photo-btn-action">⬇️ Save</a>
                           ${isAdmin ? `<button class="photo-btn-action btn-del-photo" onclick="deletePhoto(${idx}, ${pIdx})">🗑️</button>` : ''}
                         </div>
                       </div>
@@ -623,8 +597,7 @@
     }
 
     function togglePhotoVisibility(index) {
-      const container = document.getElementById(`photo-box-${index}`);
-      container.classList.toggle('visible');
+      document.getElementById(`photo-box-${index}`).classList.toggle('visible');
     }
 
     function triggerPhotoUpload(index) {
@@ -682,22 +655,17 @@
 
     function handleAdminAction(index, actionType) {
       if (!isAdmin) return;
-      
       const now = new Date();
       const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const currentState = waypointsState[index] || {};
 
+      let nextIndex = currentWaypointIndex;
       if (actionType === 'arrive') {
         currentState.arrived = timeString;
+        nextIndex = index;
       } else if (actionType === 'left') {
         currentState.left = timeString;
-      }
-
-      let nextIndex = currentWaypointIndex;
-      if (actionType === 'left') {
         nextIndex = Math.min(index + 1, routeData.length - 1);
-      } else {
-        nextIndex = index;
       }
 
       db.ref('liveTrack').update({
@@ -727,4 +695,3 @@
   </script>
 </body>
 </html>
-
