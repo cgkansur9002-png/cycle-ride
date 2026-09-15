@@ -62,6 +62,10 @@
       font-weight:800; font-size:0.85rem; border:none; cursor:pointer; margin-bottom:8px;
       box-shadow:0 4px 12px rgba(2,132,199,0.2); transition:all 0.2s ease;
     }
+    .gps-toggle-btn.friend-btn{
+      background:#16a34a;
+      box-shadow:0 4px 12px rgba(22,163,74,0.2);
+    }
 
     .timeline-container{ flex:1; overflow-y:auto; padding:14px 10px; -webkit-overflow-scrolling:touch; }
     .timeline-item{ position:relative; padding-left:26px; padding-bottom:12px; }
@@ -79,7 +83,6 @@
     .actual-time-badge{ font-size:.75rem; color:#16a34a; font-weight:700; margin-top:6px; display:block; }
     .halting-time-badge{ font-size:.7rem; color:#d97706; font-weight:700; margin-top:4px; display:block; }
 
-    /* TRAVEL DURATION OUTSIDE THE BOX */
     .transit-between-badge{
       margin: 8px 0 12px 0;
       background: #e0f2fe;
@@ -160,6 +163,7 @@
       <div class="control-panel">
         <div id="admin-gps-panel" style="display:none;">
           <button id="gps-btn" class="gps-toggle-btn" onclick="toggleLiveRiderGPS()">📡 START RIDER LIVE GPS</button>
+          <button id="friend-gps-btn" class="gps-toggle-btn friend-btn" onclick="toggleFriendGPS()">🛵 START FRIEND LIVE GPS</button>
         </div>
         <div class="metrics-grid">
           <div class="stat-card" id="status-card">
@@ -222,13 +226,15 @@
 
     let currentWaypointIndex = 0;
     let waypointsState = {}; 
-    let map, cycleMarker;
+    let map, cycleMarker, friendMarker;
     let mapMarkers = [];
     let watchId = null;
+    let friendWatchId = null;
     let selectedIndexForPhoto = null;
     let coveredPolyline, remainingPolyline;
     let fullRoadPath = [];
     let currentSpeed = 0;
+    let friendSpeed = 0;
 
     function createPinIcon(color) {
       const svgPin = `<svg width="22" height="30" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z" fill="${color}"/></svg>`;
@@ -250,9 +256,15 @@
         mapMarkers.push(marker);
       });
 
+      // Main Rider Marker (Chinmay)
       const cycleIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚴‍♂️', iconSize: [32, 32], iconAnchor: [16, 16] });
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: cycleIcon }).addTo(map);
       updateRiderPopup("Devikere", "Maratikoppa");
+
+      // Friend Marker (Scooter icon)
+      const friendIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🛵', iconSize: [32, 32], iconAnchor: [16, 16] });
+      friendMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: friendIcon }).addTo(map);
+      updateFriendPopup();
 
       coveredPolyline = L.polyline([], { color: '#16a34a', weight: 5, opacity: 0.9 }).addTo(map);
       remainingPolyline = L.polyline([], { color: '#94a3b8', weight: 4, opacity: 0.7, dashArray: '6, 8' }).addTo(map);
@@ -305,6 +317,16 @@
             <b>Next Destination:</b> ${toLoc || "Destination"}<br/>
             <b>From:</b> ${fromLoc || "Start"}
           </div>
+        </div>
+      `);
+    }
+
+    function updateFriendPopup() {
+      friendMarker.bindPopup(`
+        <div class="rider-popup-card">
+          <div class="rider-popup-title" style="color:#16a34a;">🛵 FRIEND (LIVE)</div>
+          <div class="speedometer-badge">⚡ ${friendSpeed} KM/H</div>
+          <div style="font-size:0.75rem; color:#475569; margin-top:4px;">Tracking live location...</div>
         </div>
       `);
     }
@@ -428,7 +450,7 @@
               timestamp: Date.now()
             });
 
-            btn.innerText = "🛑 STOP LIVE GPS (TRACKING ON)";
+            btn.innerText = "🛑 STOP RIDER GPS (TRACKING ON)";
             btn.style.background = "#dc2626";
           },
           (error) => {
@@ -444,6 +466,45 @@
       }
     }
 
+    // Friend Live GPS Toggle Function
+    function toggleFriendGPS() {
+      const btn = document.getElementById('friend-gps-btn');
+
+      if (!navigator.geolocation) {
+        alert("GPS permission not supported in your browser.");
+        return;
+      }
+
+      if (friendWatchId === null) {
+        friendWatchId = navigator.geolocation.watchPosition(
+          (position) => {
+            const { latitude, longitude, speed } = position.coords;
+            friendSpeed = speed ? (speed * 3.6).toFixed(1) : 0;
+
+            db.ref('liveTrack/friendGPS').set({
+              lat: latitude,
+              lng: longitude,
+              speed: friendSpeed,
+              timestamp: Date.now()
+            });
+
+            btn.innerText = "🛑 STOP FRIEND GPS (TRACKING ON)";
+            btn.style.background = "#dc2626";
+          },
+          (error) => {
+            alert("GPS Error: " + error.message);
+          },
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+        );
+      } else {
+        navigator.geolocation.clearWatch(friendWatchId);
+        friendWatchId = null;
+        btn.innerText = "🛵 START FRIEND LIVE GPS";
+        btn.style.background = "#16a34a";
+      }
+    }
+
+    // Real-time listener for Rider GPS
     db.ref('liveTrack/currentGPS').on('value', (snapshot) => {
       const gps = snapshot.val();
       if (gps && gps.lat && gps.lng) {
@@ -456,7 +517,17 @@
         updateRiderPopup(currentSpot, nextSpot);
 
         updateHeroMarquee(gps.lat, gps.lng);
-        map.panTo(livePos);
+      }
+    });
+
+    // Real-time listener for Friend GPS
+    db.ref('liveTrack/friendGPS').on('value', (snapshot) => {
+      const gps = snapshot.val();
+      if (gps && gps.lat && gps.lng) {
+        const friendPos = [gps.lat, gps.lng];
+        friendSpeed = gps.speed || 0;
+        friendMarker.setLatLng(friendPos);
+        updateFriendPopup();
       }
     });
 
@@ -473,7 +544,6 @@
 
         let photos = Array.isArray(state.photos) ? state.photos : (state.photo ? [state.photo] : []);
 
-        // Halting Time calculation (inside stop card)
         let haltingTimeHtml = '';
         if (state.arrived && state.left) {
           const [arrH, arrM] = state.arrived.split(':').map(Number);
@@ -486,7 +556,6 @@
           }
         }
 
-        // Travel Duration calculation (OUTSIDE the boxes, placed between items)
         let travelDurationOutsideHtml = '';
         if (idx > 0) {
           const prevState = waypointsState[idx - 1] || {};
@@ -617,8 +686,6 @@
         currentState.left = timeString;
       }
 
-      // FIX: When 'left' is clicked, currentWaypointIndex becomes the NEXT stop, 
-      // ensuring the map line and marquee accurately target the upcoming road segment.
       let nextIndex = currentWaypointIndex;
       if (actionType === 'left') {
         nextIndex = Math.min(index + 1, routeData.length - 1);
