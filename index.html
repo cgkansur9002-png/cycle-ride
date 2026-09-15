@@ -671,6 +671,7 @@ header{
     let map, cycleMarker;
     let mapMarkers = [];
     let completedPolyline, upcomingPolyline;
+    let osrmFullRoute = [];
 
     function createPinIcon(color) {
       const svgPin = `
@@ -690,17 +691,8 @@ header{
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
 
-      completedPolyline = L.polyline([], {
-  color: '#2563eb',
-  weight: 7,
-  opacity: 1
-}).addTo(map);
-
-upcomingPolyline = L.polyline([], {
-  color: '#64748b',
-  weight: 5,
-  opacity: 0.5
-}).addTo(map);
+      completedPolyline = L.polyline([], { color: '#2ecc71', weight: 5, opacity: 0.95 }).addTo(map);
+      upcomingPolyline = L.polyline([], { color: '#38bdf8', weight: 4, opacity: 0.75, dashArray: '6, 8' }).addTo(map);
 
       routeData.forEach((pt, index) => {
         const pinColor = index < currentWaypointIndex ? '#2ecc71' : '#38bdf8';
@@ -714,7 +706,27 @@ upcomingPolyline = L.polyline([], {
       const cycleIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚴‍♂️', iconSize: [30, 30], iconAnchor: [15, 15] });
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: cycleIcon }).addTo(map);
 
-      updatePathLines();
+      fetchRoadRoute();
+    }
+
+    async function fetchRoadRoute() {
+      const coordinatesString = routeData.map(pt => `${pt.lng},${pt.lat}`).join(';');
+      const osrmUrl = `https://router.project-osrm.org/route/v1/bicycling/${coordinatesString}?overview=full&geometries=geojson`;
+
+      try {
+        const response = await fetch(osrmUrl);
+        const data = await response.json();
+        
+        if (data.routes && data.routes.length > 0) {
+          osrmFullRoute = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+          updatePathLines();
+        } else {
+          updatePathLines();
+        }
+      } catch (error) {
+        console.error("OSRM Route fetching error:", error);
+        updatePathLines();
+      }
     }
 
     function calculateLegDistance(idx1, idx2) {
@@ -732,7 +744,6 @@ upcomingPolyline = L.polyline([], {
       const lastSpotState = currentWaypointIndex > 0 ? (waypointsState[currentWaypointIndex - 1] || {}) : {};
       const prevSpot = currentWaypointIndex > 0 ? routeData[currentWaypointIndex - 1] : null;
 
-      // Start Spot (Devikere)
       if (currentWaypointIndex === 0) {
         if (curState.arrived) {
           banner.innerHTML = `⚡ RIDER HAS ARRIVED AT ${curSpot.name.toUpperCase()}! THE DARSHAN RIDE IS LIVE! 🙏 &nbsp;&nbsp;•&nbsp;&nbsp; 🔥 SIRSI GANPATI DARSHAN 2026`;
@@ -742,13 +753,11 @@ upcomingPolyline = L.polyline([], {
         return;
       }
 
-      // Final Spot Completed
       if (currentWaypointIndex === totalStops - 1 && curState.arrived) {
         banner.innerHTML = `🏆 RIDE COMPLETED! VICTORY AT ${curSpot.name.toUpperCase()}! SHREE GANPATI BAPPA MORYA! 🎉 &nbsp;&nbsp;•&nbsp;&nbsp; ALL STOPS COVERED!`;
         return;
       }
 
-      // In Transit / Arrived at stops
       if (curState.arrived && !curState.left) {
         banner.innerHTML = `✨ RIDER HAS ARRIVED AT ${curSpot.name.toUpperCase()}! DARSHAN IN PROGRESS! 🙏 &nbsp;&nbsp;•&nbsp;&nbsp; LIVE UPDATES ACTIVE`;
       } else if (prevSpot && lastSpotState.left) {
@@ -760,11 +769,14 @@ upcomingPolyline = L.polyline([], {
     }
 
     function updatePathLines() {
-      const completedCoords = routeData.slice(0, currentWaypointIndex + 1).map(pt => [pt.lat, pt.lng]);
-      const upcomingCoords = routeData.slice(currentWaypointIndex).map(pt => [pt.lat, pt.lng]);
-
-      completedPolyline.setLatLngs(completedCoords);
-      upcomingPolyline.setLatLngs(upcomingCoords);
+      if (osrmFullRoute.length > 0) {
+        upcomingPolyline.setLatLngs(osrmFullRoute);
+      } else {
+        const completedCoords = routeData.slice(0, currentWaypointIndex + 1).map(pt => [pt.lat, pt.lng]);
+        const upcomingCoords = routeData.slice(currentWaypointIndex).map(pt => [pt.lat, pt.lng]);
+        completedPolyline.setLatLngs(completedCoords);
+        upcomingPolyline.setLatLngs(upcomingCoords);
+      }
 
       let distMeters = 0;
       for (let i = 0; i < currentWaypointIndex; i++) {
@@ -845,44 +857,7 @@ upcomingPolyline = L.polyline([], {
         }
       });
     }
-let travelAnimation = null;
 
-function animateCycle(startPoint, endPoint) {
-
-  if (travelAnimation) {
-    clearInterval(travelAnimation);
-  }
-
-  let progress = 0;
-  const steps = 100;
-
-  travelAnimation = setInterval(() => {
-
-    progress++;
-
-    const lat =
-      startPoint.lat +
-      ((endPoint.lat - startPoint.lat) * progress / steps);
-
-    const lng =
-      startPoint.lng +
-      ((endPoint.lng - startPoint.lng) * progress / steps);
-
-    cycleMarker.setLatLng([lat, lng]);
-
-    // show travelled part in blue
-
-    completedPolyline.setLatLngs([
-      [startPoint.lat, startPoint.lng],
-      [lat, lng]
-    ]);
-
-    if (progress >= steps) {
-      clearInterval(travelAnimation);
-    }
-
-  }, 100);
-}
     function handleAdminAction(index, actionType) {
       if (!isAdmin) return;
 
@@ -910,14 +885,7 @@ function animateCycle(startPoint, endPoint) {
       if (actionType === 'left') {
         nextIndex = Math.min(routeData.length - 1, currentWaypointIndex + 1);
       }
-      if (actionType === 'left' &&
-    currentWaypointIndex < routeData.length - 1) {
 
-    animateCycle(
-      routeData[currentWaypointIndex],
-      routeData[currentWaypointIndex + 1]
-    );
-}
       db.ref('liveTrack').set({
         index: nextIndex,
         delayMins: diffMins,
@@ -937,12 +905,7 @@ function animateCycle(startPoint, endPoint) {
         updateDelayUI(data.delayMins || 0);
 
         const currentPt = routeData[currentWaypointIndex];
-        if (!travelAnimation) {
-  cycleMarker.setLatLng([
-    currentPt.lat,
-    currentPt.lng
-  ]);
-}
+        cycleMarker.setLatLng([currentPt.lat, currentPt.lng]);
         map.panTo([currentPt.lat, currentPt.lng]);
 
         updateHeroStatusBanner();
