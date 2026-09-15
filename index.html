@@ -75,6 +75,8 @@
     .place-name{ font-size:.95rem; font-weight:800; color:#0f172a; display:flex; justify-content:space-between; align-items:center; }
     .sched-time{ color:#64748b; margin-top:4px; font-size:.75rem; }
     .actual-time-badge{ font-size:.75rem; color:#16a34a; font-weight:700; margin-top:6px; display:block; }
+    .transit-time-badge{ font-size:.7rem; color:#0284c7; font-weight:700; margin-top:4px; display:block; }
+    .halting-time-badge{ font-size:.7rem; color:#d97706; font-weight:700; margin-top:2px; display:block; }
 
     .photo-section-wrap{ margin-top:10px; }
     .photo-toggle-btn{ background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; padding:6px 12px; border-radius:6px; font-size:.75rem; font-weight:700; cursor:pointer; }
@@ -293,16 +295,13 @@
       `);
     }
 
-    // --- UPDATED SCHEDULE STATUS CALCULATOR ---
     function updateScheduleStatusDisplay() {
       const statusCard = document.getElementById('status-card');
       const delayText = document.getElementById('delay-text');
 
-      // Find the latest reached/arrived waypoint or current target waypoint
       let targetIndex = currentWaypointIndex;
       let activeState = waypointsState[targetIndex] || {};
       
-      // If current waypoint isn't arrived yet, check previous completed waypoints to find delay
       let checkIdx = targetIndex;
       if (!activeState.arrived && targetIndex > 0) {
         for (let i = targetIndex - 1; i >= 0; i--) {
@@ -314,11 +313,10 @@
         }
       }
 
-      const scheduledTimeStr = routeData[checkIdx].time; // e.g. "16:00"
-      const actualArrivalStr = activeState.arrived;     // e.g. "18:44"
+      const scheduledTimeStr = routeData[checkIdx].time;
+      const actualArrivalStr = activeState.arrived;
 
       if (!actualArrivalStr) {
-        // If no waypoint is marked arrived yet, check against real-time clock vs scheduled time of current waypoint
         const [schH, schM] = scheduledTimeStr.split(':').map(Number);
         const schTotalMins = schH * 60 + schM;
         
@@ -342,7 +340,6 @@
         return;
       }
 
-      // Calculate delay based on Actual Arrival vs Scheduled Time
       const [schH, schM] = scheduledTimeStr.split(':').map(Number);
       const [actH, actM] = actualArrivalStr.split(':').map(Number);
 
@@ -430,12 +427,43 @@
 
         let photos = Array.isArray(state.photos) ? state.photos : (state.photo ? [state.photo] : []);
 
+        // 1. Calculate Halting Time (Arrived to Left at this stop)
+        let haltingTimeHtml = '';
+        if (state.arrived && state.left) {
+          const [arrH, arrM] = state.arrived.split(':').map(Number);
+          const [lftH, lftM] = state.left.split(':').map(Number);
+          const hDiff = (lftH * 60 + lftM) - (arrH * 60 + arrM);
+          if (hDiff >= 0) {
+            const hh = Math.floor(hDiff / 60);
+            const hm = hDiff % 60;
+            haltingTimeHtml = `<span class="halting-time-badge">⏳ Stop Duration: ${hh > 0 ? hh + 'h ' : ''}${hm}m</span>`;
+          }
+        }
+
+        // 2. Calculate Travel Time from previous place's Left to current place's Arrival
+        let travelTimeHtml = '';
+        if (idx > 0 && state.arrived) {
+          const prevState = waypointsState[idx - 1] || {};
+          if (prevState.left) {
+            const [pLftH, pLftM] = prevState.left.split(':').map(Number);
+            const [currArrH, currArrM] = state.arrived.split(':').map(Number);
+            const tDiff = (currArrH * 60 + currArrM) - (pLftH * 60 + pLftM);
+            if (tDiff >= 0) {
+              const th = Math.floor(tDiff / 60);
+              const tm = tDiff % 60;
+              travelTimeHtml = `<span class="transit-time-badge">🚗 Travel Time: ${th > 0 ? th + 'h ' : ''}${tm}m from previous stop</span>`;
+            }
+          }
+        }
+
         item.innerHTML = `
           <div class="timeline-node"></div>
           <div class="timeline-card">
             <div class="place-name"><span>${idx + 1}. ${pt.name}</span>${isCurrentSpot ? '<span>🚴‍♂️</span>' : ''}</div>
             <div class="sched-time">Scheduled: <b>${pt.time}</b></div>
             ${state.arrived ? `<span class="actual-time-badge">✅ Arrived: ${state.arrived} ${state.left ? `| Left: ${state.left}` : ''}</span>` : ''}
+            ${travelTimeHtml}
+            ${haltingTimeHtml}
 
             ${photos.length > 0 ? `
               <div class="photo-section-wrap">
@@ -460,7 +488,6 @@
               <div class="btn-wrap">
                 ${!state.arrived ? `<button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">📍 ARRIVED NOW</button>` : ''}
                 ${state.arrived && !state.left ? `<button class="action-btn btn-left" onclick="handleAdminAction(${idx}, 'left')">🚀 LEFT NOW</button>` : ''}
-                
                 ${state.arrived ? `<button class="action-btn btn-photo" onclick="triggerPhotoUpload(${idx})">📷 ADD PHOTOS</button>` : ''}
               </div>
             ` : ''}
@@ -469,7 +496,6 @@
         container.appendChild(item);
       });
 
-      // Update schedule status block whenever timeline updates
       updateScheduleStatusDisplay();
     }
 
