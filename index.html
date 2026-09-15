@@ -476,8 +476,8 @@
     </div>
   </div>
 
-  <!-- HIDDEN FILE INPUT FOR ADMIN PHOTO UPLOAD -->
-  <input type="file" id="photo-file-input" accept="image/*" style="display:none;">
+  <!-- DIRECT CAMERA ACCESS INPUT -->
+  <input type="file" id="photo-file-input" accept="image/*" capture="environment" style="display:none;">
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -739,7 +739,11 @@
                 ${isCurrentSpot && !arrivedTime ? `<button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">ARRIVED NOW</button>` : ''}
                 ${isCurrentSpot && arrivedTime && !leftTime ? `<button class="action-btn btn-left" onclick="handleAdminAction(${idx}, 'left')">LEFT NOW</button>` : ''}
                 ${!isCurrentSpot && waypointsState[idx - 1]?.left && !arrivedTime ? `<button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">ARRIVED NOW</button>` : ''}
-                <button class="action-btn btn-photo" onclick="triggerPhotoUpload(${idx})">${photoUrl ? '📷 CHANGE PHOTO' : '📷 ADD PHOTO'}</button>
+                
+                ${/* PHOTO BUTTON IS ONLY SHOWN AFTER ARRIVED */''}
+                ${arrivedTime ? `
+                  <button class="action-btn btn-photo" onclick="triggerPhotoUpload(${idx})">${photoUrl ? '📷 CHANGE PHOTO' : '📷 ADD PHOTO'}</button>
+                ` : ''}
               </div>
             ` : ''}
           </div>
@@ -756,7 +760,7 @@
       });
     }
 
-    // PHOTO UPLOAD HANDLING
+    // PHOTO UPLOAD & CAMERA TRIGGER HANDLING
     function triggerPhotoUpload(index) {
       selectedIndexForPhoto = index;
       document.getElementById('photo-file-input').click();
@@ -766,7 +770,6 @@
       const file = e.target.files[0];
       if (!file || selectedIndexForPhoto === null) return;
 
-      // Compress and convert image to Base64 (max 800px width/height)
       const reader = new FileReader();
       reader.onload = function(event) {
         const img = new Image();
@@ -789,12 +792,13 @@
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          // Get compressed Base64 String
           const base64Image = canvas.toDataURL('image/jpeg', 0.7);
 
-          // Save directly into Firebase for that specific stop
           db.ref(`liveTrack/waypoints/${selectedIndexForPhoto}/photo`).set(base64Image);
           selectedIndexForPhoto = null;
+          
+          // Clear input so same image can be re-selected if needed
+          e.target.value = '';
         };
         img.src = event.target.result;
       };
