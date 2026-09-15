@@ -467,18 +467,10 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Route Array - Devikere to Maratikoppa aligned via Pulakeshi Road
+    // 19 Stop Coordinates in Order
     const routeData = [
       { id: 1, name: "Devikere", time: "16:00", lat: 14.619805, lng: 74.832288 },
-      { id: 2, name: "Maratikoppa", time: "16:10", lat: 14.629540, lng: 74.836248, 
-        pathOverride: [
-          [14.619805, 74.832288],
-          [14.620600, 74.832480],
-          [14.622500, 74.832900], // Pulakeshi Road near Suraksha Hospital
-          [14.625500, 74.833800], // Pulakeshi Nagar
-          [14.629540, 74.836248]
-        ]
-      },
+      { id: 2, name: "Maratikoppa", time: "16:10", lat: 14.629540, lng: 74.836248 },
       { id: 3, name: "Bapuji Nagar", time: "16:20", lat: 14.624583, lng: 74.840028 },
       { id: 4, name: "Chipgi", time: "16:35", lat: 14.644139, lng: 74.862833 },
       { id: 5, name: "Vivekananda Nagar", time: "16:45", lat: 14.630944, lng: 74.852139 },
@@ -503,6 +495,8 @@
     let map, cycleMarker;
     let mapMarkers = [];
     let completedPolyline, upcomingPolyline;
+    let fullRoadPath = []; 
+    let legPaths = []; 
 
     function createPinIcon(color) {
       const svgPin = `
@@ -513,16 +507,56 @@
       return L.divIcon({ className: 'custom-pin-icon', html: svgPin, iconSize: [24, 32], iconAnchor: [12, 32] });
     }
 
-    function getFullPolylinePath() {
-      let path = [];
-      for (let i = 0; i < routeData.length; i++) {
-        if (routeData[i].pathOverride) {
-          path.push(...routeData[i].pathOverride);
+    // Fetch real road paths using OSRM API
+    async function fetchOSRMRoute() {
+      const coordString = routeData.map(pt => `${pt.lng},${pt.lat}`).join(';');
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson`;
+
+      try {
+        const response = await fetch(osrmUrl);
+        const data = await response.json();
+
+        if (data.routes && data.routes.length > 0) {
+          const coords = data.routes[0].geometry.coordinates;
+          fullRoadPath = coords.map(c => [c[1], c[0]]); // Swap [lng, lat] to [lat, lng]
+          
+          // Separate into individual legs between stops
+          legPaths = [];
+          for (let i = 0; i < routeData.length - 1; i++) {
+            const startPt = [routeData[i].lat, routeData[i].lng];
+            const endPt = [routeData[i + 1].lat, routeData[i + 1].lng];
+            
+            // Sub-fetch individual leg for precise snapping
+            const legUrl = `https://router.project-osrm.org/route/v1/driving/${startPt[1]},${startPt[0]};${endPt[1]},${endPt[0]}?overview=full&geometries=geojson`;
+            const legRes = await fetch(legUrl);
+            const legData = await legRes.json();
+            
+            if (legData.routes && legData.routes[0]) {
+              const legCoords = legData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+              legPaths.push(legCoords);
+            } else {
+              legPaths.push([startPt, endPt]);
+            }
+          }
         } else {
-          path.push([routeData[i].lat, routeData[i].lng]);
+          fallbackStraightLines();
         }
+      } catch (err) {
+        console.warn("OSRM error, falling back to direct points:", err);
+        fallbackStraightLines();
       }
-      return path;
+
+      updatePathLines();
+    }
+
+    function fallbackStraightLines() {
+      legPaths = [];
+      for (let i = 0; i < routeData.length - 1; i++) {
+        legPaths.push([
+          [routeData[i].lat, routeData[i].lng],
+          [routeData[i + 1].lat, routeData[i + 1].lng]
+        ]);
+      }
     }
 
     function initMap() {
@@ -549,7 +583,7 @@
       const cycleIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚴‍♂️', iconSize: [30, 30], iconAnchor: [15, 15] });
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: cycleIcon }).addTo(map);
 
-      updatePathLines();
+      fetchOSRMRoute();
     }
 
     function calculateLegDistance(idx1, idx2) {
@@ -592,16 +626,16 @@
     }
 
     function updatePathLines() {
+      if (legPaths.length === 0) return;
+
       let completedCoords = [];
       let upcomingCoords = [];
 
-      for (let i = 0; i < routeData.length; i++) {
-        let pts = routeData[i].pathOverride || [[routeData[i].lat, routeData[i].lng]];
-        if (i <= currentWaypointIndex) {
-          completedCoords.push(...pts);
-        }
-        if (i >= currentWaypointIndex) {
-          upcomingCoords.push(...pts);
+      for (let i = 0; i < legPaths.length; i++) {
+        if (i < currentWaypointIndex) {
+          completedCoords.push(...legPaths[i]);
+        } else {
+          upcomingCoords.push(...legPaths[i]);
         }
       }
 
