@@ -50,7 +50,7 @@
     .dashboard-container{ display:flex; flex:1; height:calc(100vh - 75px); overflow:hidden; }
     .sidebar{ width:400px; background:var(--bg-card); border-right:1px solid var(--border-color); display:flex; flex-direction:column; height:100%; }
     .control-panel{ padding:12px; background:var(--bg-panel); border-bottom:1px solid var(--border-color); flex-shrink:0; }
-    .metrics-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .metrics-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
     .stat-card{ background:#f8fafc; border-radius:10px; padding:10px; border:1px solid var(--border-color); transition: all 0.3s ease; }
     .stat-card.green{ border-color:#86efac; background:#f0fdf4; }
     .stat-card.red{ border-color:#fca5a5; background:#fef2f2; }
@@ -58,14 +58,17 @@
     .stat-value{ font-size:.9rem; font-weight:800; margin-top:2px; color:#0f172a; word-break:break-word; }
 
     .gps-toggle-btn{
-      background:#0284c7; color:white; padding:12px; border-radius:10px; width:100%;
-      font-weight:800; font-size:0.85rem; border:none; cursor:pointer; margin-bottom:8px;
-      box-shadow:0 4px 12px rgba(2,132,199,0.2); transition:all 0.2s ease;
+      background:#0284c7; color:white; padding:10px; border-radius:8px; width:100%;
+      font-weight:800; font-size:0.8rem; border:none; cursor:pointer; margin-bottom:6px;
+      box-shadow:0 2px 6px rgba(2,132,199,0.2); transition:all 0.2s ease;
     }
-    .gps-toggle-btn.friend-btn{
-      background:#16a34a;
-      box-shadow:0 4px 12px rgba(22,163,74,0.2);
+    .gps-toggle-btn.friend-btn{ background:#16a34a; box-shadow:0 2px 6px rgba(22,163,74,0.2); }
+    
+    .admin-override-box{
+      background: #fef2f2; border: 1px dashed #dc2626; padding: 8px; border-radius: 8px; margin-bottom: 8px;
     }
+    .admin-override-box label{ font-size: 0.7rem; font-weight: 800; color: #dc2626; display: block; margin-bottom: 4px; }
+    .admin-select{ width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #fca5a5; font-size: 0.75rem; font-weight: 700; background: #fff; color: #0f172a; }
 
     .timeline-container{ flex:1; overflow-y:auto; padding:14px 10px; -webkit-overflow-scrolling:touch; }
     .timeline-item{ position:relative; padding-left:26px; padding-bottom:12px; }
@@ -84,17 +87,8 @@
     .halting-time-badge{ font-size:.7rem; color:#d97706; font-weight:700; margin-top:4px; display:block; }
 
     .transit-between-badge{
-      margin: 8px 0 12px 0;
-      background: #e0f2fe;
-      border: 1px dashed #0284c7;
-      color: #0369a1;
-      font-size: 0.72rem;
-      font-weight: 700;
-      padding: 6px 10px;
-      border-radius: 8px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      margin: 8px 0 12px 0; background: #e0f2fe; border: 1px dashed #0284c7; color: #0369a1;
+      font-size: 0.72rem; font-weight: 700; padding: 6px 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;
     }
 
     .photo-section-wrap{ margin-top:10px; }
@@ -162,9 +156,18 @@
     <div class="sidebar">
       <div class="control-panel">
         <div id="admin-gps-panel" style="display:none;">
+          
+          <!-- EMERGENCY INDEX OVERRIDE FIX -->
+          <div class="admin-override-box">
+            <label>⚡ MANUAL CURRENT STOP OVERRIDE</label>
+            <select id="admin-stop-select" class="admin-select" onchange="manualOverrideStop(this.value)">
+            </select>
+          </div>
+
           <button id="gps-btn" class="gps-toggle-btn" onclick="toggleLiveRiderGPS()">📡 START RIDER LIVE GPS</button>
           <button id="friend-gps-btn" class="gps-toggle-btn friend-btn" onclick="toggleFriendGPS()">🛵 START FRIEND LIVE GPS</button>
         </div>
+
         <div class="metrics-grid">
           <div class="stat-card" id="status-card">
             <div class="stat-label">Schedule Status</div>
@@ -237,6 +240,18 @@
     let currentSpeed = 0;
     let friendSpeed = 0;
 
+    function populateAdminSelect() {
+      if (!isAdmin) return;
+      const select = document.getElementById('admin-stop-select');
+      select.innerHTML = routeData.map((pt, idx) => `<option value="${idx}">Stop ${idx + 1}: ${pt.name}</option>`).join('');
+    }
+
+    function manualOverrideStop(val) {
+      if (!isAdmin) return;
+      const newIdx = parseInt(val);
+      db.ref('liveTrack').update({ index: newIdx });
+    }
+
     function createPinIcon(color) {
       const svgPin = `<svg width="22" height="30" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z" fill="${color}"/></svg>`;
       return L.divIcon({ className: 'custom-pin-icon', html: svgPin, iconSize: [22, 30], iconAnchor: [11, 30] });
@@ -257,12 +272,9 @@
         mapMarkers.push(marker);
       });
 
-      // Main Rider Marker (Chinmay)
       const cycleIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚴‍♂️', iconSize: [32, 32], iconAnchor: [16, 16] });
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: cycleIcon }).addTo(map);
-      updateRiderPopup();
 
-      // Friend Marker (Nitin)
       const friendIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🛵', iconSize: [32, 32], iconAnchor: [16, 16] });
       friendMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: friendIcon }).addTo(map);
       updateFriendPopup();
@@ -270,6 +282,7 @@
       coveredPolyline = L.polyline([], { color: '#16a34a', weight: 5, opacity: 0.9 }).addTo(map);
       remainingPolyline = L.polyline([], { color: '#94a3b8', weight: 4, opacity: 0.7, dashArray: '6, 8' }).addTo(map);
 
+      populateAdminSelect();
       await fetchOSRMRealRoads();
     }
 
@@ -309,18 +322,29 @@
       remainingPolyline.setLatLngs(remaining);
     }
 
-    function updateRiderPopup() {
-      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : (routeData[0] ? routeData[0].name : "Devikere");
-      const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
-      const nextSpot = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
+    function getActiveRouteNames() {
+      let fromSpot = "";
+      let nextSpot = "";
 
+      if (currentWaypointIndex === 0) {
+        fromSpot = routeData[0].name;
+        nextSpot = routeData[1] ? routeData[1].name : routeData[0].name;
+      } else {
+        fromSpot = routeData[currentWaypointIndex - 1].name;
+        nextSpot = routeData[currentWaypointIndex].name;
+      }
+
+      return { fromSpot, nextSpot };
+    }
+
+    function updateRiderPopup(fromLoc, toLoc) {
       cycleMarker.bindPopup(`
         <div class="rider-popup-card">
           <div class="rider-popup-title">🚴‍♂️ CHINMAY</div>
           <div class="speedometer-badge">⚡ ${currentSpeed} KM/H</div>
           <div style="font-size:0.75rem; color:#475569; margin-top:4px;">
-            <b>Next Destination:</b> ${nextSpot}<br/>
-            <b>From:</b> ${currentSpot}
+            <b>Next Destination:</b> ${toLoc || "Destination"}<br/>
+            <b>From:</b> ${fromLoc || "Start"}
           </div>
         </div>
       `);
@@ -329,7 +353,7 @@
     function updateFriendPopup() {
       friendMarker.bindPopup(`
         <div class="rider-popup-card">
-          <div class="rider-popup-title" style="color:#16a34a;">🛵 NITIN </div>
+          <div class="rider-popup-title" style="color:#16a34a;">🛵 NITIN</div>
           <div class="speedometer-badge">⚡ ${friendSpeed} KM/H</div>
           <div style="font-size:0.75rem; color:#475569; margin-top:4px;">Tracking live location...</div>
         </div>
@@ -348,19 +372,8 @@
     }
 
     function updateHeroMarquee(currentLat, currentLng) {
-      const marqueeEl = document.getElementById('live-hero-status');
-      const currentState = waypointsState[currentWaypointIndex] || {};
-
-      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : (routeData[0] ? routeData[0].name : "Devikere");
-
-      if (currentState.arrived && !currentState.left) {
-        marqueeEl.innerText = `📍 ARRIVED AT ${currentSpot.toUpperCase()}! 🛑 HALTING / DARSHAN IN PROGRESS | Speed: ${currentSpeed} KM/H`;
-        return;
-      }
-
-      const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
-      const nextSpot = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
-      const nextTarget = routeData[nextIndex];
+      const { fromSpot, nextSpot } = getActiveRouteNames();
+      const nextTarget = routeData[currentWaypointIndex];
 
       let distanceStr = "";
       if (nextTarget && currentLat && currentLng) {
@@ -372,7 +385,8 @@
         }
       }
 
-      marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! Current Location: ${currentSpot} ➔ Heading to: ${nextSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
+      const marqueeEl = document.getElementById('live-hero-status');
+      marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! Traveling: ${fromSpot} ➔ Heading to: ${nextSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
     }
 
     function updateScheduleStatusDisplay() {
@@ -393,13 +407,12 @@
         }
       }
 
-      const scheduledTimeStr = routeData[checkIdx] ? routeData[checkIdx].time : "17:00";
+      const scheduledTimeStr = routeData[checkIdx].time;
       const actualArrivalStr = activeState.arrived;
 
       if (!actualArrivalStr) {
         const [schH, schM] = scheduledTimeStr.split(':').map(Number);
         const schTotalMins = schH * 60 + schM;
-        
         const now = new Date();
         const currentMins = now.getHours() * 60 + now.getMinutes();
         const diffMins = currentMins - schTotalMins;
@@ -422,10 +435,7 @@
 
       const [schH, schM] = scheduledTimeStr.split(':').map(Number);
       const [actH, actM] = actualArrivalStr.split(':').map(Number);
-
-      const schTotalMins = schH * 60 + schM;
-      const actTotalMins = actH * 60 + actM;
-      const diffMins = actTotalMins - schTotalMins;
+      const diffMins = (actH * 60 + actM) - (schH * 60 + schM);
 
       if (diffMins > 10) {
         statusCard.className = 'stat-card red';
@@ -434,8 +444,7 @@
         delayText.innerHTML = `⚠️ ${hrs > 0 ? hrs + 'h ' : ''}${mins}m LATE`;
       } else if (diffMins < -5) {
         statusCard.className = 'stat-card green';
-        const earlyMins = Math.abs(diffMins);
-        delayText.innerHTML = `⚡ ${earlyMins}m EARLY`;
+        delayText.innerHTML = `⚡ ${Math.abs(diffMins)}m EARLY`;
       } else {
         statusCard.className = 'stat-card';
         delayText.innerHTML = "ON TIME";
@@ -444,31 +453,18 @@
 
     function toggleLiveRiderGPS() {
       const btn = document.getElementById('gps-btn');
-
-      if (!navigator.geolocation) {
-        alert("GPS permission not supported in your browser.");
-        return;
-      }
+      if (!navigator.geolocation) { alert("GPS not supported"); return; }
 
       if (watchId === null) {
         watchId = navigator.geolocation.watchPosition(
-          (position) => {
-            const { latitude, longitude, speed } = position.coords;
+          (pos) => {
+            const { latitude, longitude, speed } = pos.coords;
             currentSpeed = speed ? (speed * 3.6).toFixed(1) : 0;
-
-            db.ref('liveTrack/currentGPS').set({
-              lat: latitude,
-              lng: longitude,
-              speed: currentSpeed,
-              timestamp: Date.now()
-            });
-
-            btn.innerText = "🛑 STOP RIDER GPS (TRACKING ON)";
+            db.ref('liveTrack/currentGPS').set({ lat: latitude, lng: longitude, speed: currentSpeed, timestamp: Date.now() });
+            btn.innerText = "🛑 STOP RIDER GPS";
             btn.style.background = "#dc2626";
           },
-          (error) => {
-            alert("GPS Error: " + error.message);
-          },
+          (err) => alert("GPS Error: " + err.message),
           { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
         );
       } else {
@@ -481,59 +477,44 @@
 
     function toggleFriendGPS() {
       const btn = document.getElementById('friend-gps-btn');
-
-      if (!navigator.geolocation) {
-        alert("GPS permission not supported in your browser.");
-        return;
-      }
+      if (!navigator.geolocation) { alert("GPS not supported"); return; }
 
       if (friendWatchId === null) {
         friendWatchId = navigator.geolocation.watchPosition(
-          (position) => {
-            const { latitude, longitude, speed } = position.coords;
+          (pos) => {
+            const { latitude, longitude, speed } = pos.coords;
             friendSpeed = speed ? (speed * 3.6).toFixed(1) : 0;
-
-            db.ref('liveTrack/friendGPS').set({
-              lat: latitude,
-              lng: longitude,
-              speed: friendSpeed,
-              timestamp: Date.now()
-            });
-
-            btn.innerText = "🛑 STOP FRIEND GPS (TRACKING ON)";
+            db.ref('liveTrack/friendGPS').set({ lat: latitude, lng: longitude, speed: friendSpeed, timestamp: Date.now() });
+            btn.innerText = "🛑 STOP FRIEND GPS";
             btn.style.background = "#dc2626";
           },
-          (error) => {
-            alert("GPS Error: " + error.message);
-          },
+          (err) => alert("GPS Error: " + err.message),
           { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
         );
       } else {
         navigator.geolocation.clearWatch(friendWatchId);
         friendWatchId = null;
-        btn.innerText = "🛵 START RIDER-2 LIVE GPS";
+        btn.innerText = "🛵 START FRIEND LIVE GPS";
         btn.style.background = "#16a34a";
       }
     }
 
-    db.ref('liveTrack/currentGPS').on('value', (snapshot) => {
-      const gps = snapshot.val();
+    db.ref('liveTrack/currentGPS').on('value', (snap) => {
+      const gps = snap.val();
       if (gps && gps.lat && gps.lng) {
-        const livePos = [gps.lat, gps.lng];
         currentSpeed = gps.speed || 0;
-        cycleMarker.setLatLng(livePos);
-
-        updateRiderPopup();
+        cycleMarker.setLatLng([gps.lat, gps.lng]);
+        const { fromSpot, nextSpot } = getActiveRouteNames();
+        updateRiderPopup(fromSpot, nextSpot);
         updateHeroMarquee(gps.lat, gps.lng);
       }
     });
 
-    db.ref('liveTrack/friendGPS').on('value', (snapshot) => {
-      const gps = snapshot.val();
+    db.ref('liveTrack/friendGPS').on('value', (snap) => {
+      const gps = snap.val();
       if (gps && gps.lat && gps.lng) {
-        const friendPos = [gps.lat, gps.lng];
         friendSpeed = gps.speed || 0;
-        friendMarker.setLatLng(friendPos);
+        friendMarker.setLatLng([gps.lat, gps.lng]);
         updateFriendPopup();
       }
     });
@@ -541,6 +522,11 @@
     function renderTimeline() {
       const container = document.getElementById('timeline');
       container.innerHTML = '';
+
+      if (isAdmin) {
+        const sel = document.getElementById('admin-stop-select');
+        if (sel) sel.value = currentWaypointIndex;
+      }
 
       routeData.forEach((pt, idx) => {
         const item = document.createElement('div');
@@ -596,7 +582,7 @@
                       <div class="photo-card-item">
                         <img src="${pUrl}" class="stop-photo" onclick="window.open('${pUrl}', '_blank')">
                         <div class="photo-actions-bar">
-                          <a href="${pUrl}" download="Ganpati_Darshan_${idx}_${pIdx}.jpg" class="photo-btn-action">⬇️ Save</a>
+                          <a href="${pUrl}" download="Photo_${idx}_${pIdx}.jpg" class="photo-btn-action">⬇️ Save</a>
                           ${isAdmin ? `<button class="photo-btn-action btn-del-photo" onclick="deletePhoto(${idx}, ${pIdx})">🗑️</button>` : ''}
                         </div>
                       </div>
@@ -623,8 +609,7 @@
     }
 
     function togglePhotoVisibility(index) {
-      const container = document.getElementById(`photo-box-${index}`);
-      container.classList.toggle('visible');
+      document.getElementById(`photo-box-${index}`).classList.toggle('visible');
     }
 
     function triggerPhotoUpload(index) {
@@ -682,22 +667,17 @@
 
     function handleAdminAction(index, actionType) {
       if (!isAdmin) return;
-      
       const now = new Date();
       const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const currentState = waypointsState[index] || {};
 
+      let nextIndex = currentWaypointIndex;
       if (actionType === 'arrive') {
         currentState.arrived = timeString;
+        nextIndex = index;
       } else if (actionType === 'left') {
         currentState.left = timeString;
-      }
-
-      let nextIndex = currentWaypointIndex;
-      if (actionType === 'left') {
         nextIndex = Math.min(index + 1, routeData.length - 1);
-      } else {
-        nextIndex = index;
       }
 
       db.ref('liveTrack').update({
@@ -713,12 +693,9 @@
         waypointsState = data.waypoints || {};
         renderTimeline();
         updateDynamicRoadLines();
-        updateRiderPopup();
         
         if (data.currentGPS) {
           updateHeroMarquee(data.currentGPS.lat, data.currentGPS.lng);
-        } else {
-          updateHeroMarquee(null, null);
         }
       }
     });
