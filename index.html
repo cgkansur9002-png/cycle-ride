@@ -309,22 +309,6 @@
       remainingPolyline.setLatLngs(remaining);
     }
 
-    // FIXED ROUTE NAMES LOGIC (Strict Index - 1 to Index matching)
-    function getActiveRouteNames() {
-      let fromSpot = "";
-      let nextSpot = "";
-
-      if (currentWaypointIndex === 0) {
-        fromSpot = routeData[0].name;
-        nextSpot = routeData[1] ? routeData[1].name : routeData[0].name;
-      } else {
-        fromSpot = routeData[currentWaypointIndex - 1].name;
-        nextSpot = routeData[currentWaypointIndex].name;
-      }
-
-      return { fromSpot, nextSpot };
-    }
-
     function updateRiderPopup(fromLoc, toLoc) {
       cycleMarker.bindPopup(`
         <div class="rider-popup-card">
@@ -360,8 +344,10 @@
     }
 
     function updateHeroMarquee(currentLat, currentLng) {
-      const { fromSpot, nextSpot } = getActiveRouteNames();
-      const nextTarget = routeData[currentWaypointIndex];
+      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "Sirsi";
+      const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
+      const nextSpot = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
+      const nextTarget = routeData[nextIndex];
 
       let distanceStr = "";
       if (nextTarget && currentLat && currentLng) {
@@ -374,7 +360,7 @@
       }
 
       const marqueeEl = document.getElementById('live-hero-status');
-      marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! Traveling: ${fromSpot} ➔ Heading to: ${nextSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
+      marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! Current Location: ${currentSpot} ➔ Heading to: ${nextSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
     }
 
     function updateScheduleStatusDisplay() {
@@ -481,6 +467,7 @@
       }
     }
 
+    // Friend Live GPS Toggle Function
     function toggleFriendGPS() {
       const btn = document.getElementById('friend-gps-btn');
 
@@ -518,6 +505,7 @@
       }
     }
 
+    // Real-time listener for Rider GPS
     db.ref('liveTrack/currentGPS').on('value', (snapshot) => {
       const gps = snapshot.val();
       if (gps && gps.lat && gps.lng) {
@@ -525,12 +513,15 @@
         currentSpeed = gps.speed || 0;
         cycleMarker.setLatLng(livePos);
 
-        const { fromSpot, nextSpot } = getActiveRouteNames();
-        updateRiderPopup(fromSpot, nextSpot);
+        const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "";
+        const nextSpot = routeData[currentWaypointIndex + 1] ? routeData[currentWaypointIndex + 1].name : "Finish";
+        updateRiderPopup(currentSpot, nextSpot);
+
         updateHeroMarquee(gps.lat, gps.lng);
       }
     });
 
+    // Real-time listener for Friend GPS
     db.ref('liveTrack/friendGPS').on('value', (snapshot) => {
       const gps = snapshot.val();
       if (gps && gps.lat && gps.lng) {
@@ -683,7 +674,6 @@
       db.ref(`liveTrack/waypoints/${stopIndex}/photos`).set(photos);
     }
 
-    // FIXED ADMIN ACTION LOGIC (Index only moves on 'LEFT' click)
     function handleAdminAction(index, actionType) {
       if (!isAdmin) return;
       
@@ -691,14 +681,17 @@
       const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const currentState = waypointsState[index] || {};
 
-      let nextIndex = currentWaypointIndex;
-
       if (actionType === 'arrive') {
         currentState.arrived = timeString;
-        nextIndex = index; // Index locked on target stop until left is clicked
       } else if (actionType === 'left') {
         currentState.left = timeString;
-        nextIndex = Math.min(index + 1, routeData.length - 1); // Index shifts forward only on LEFT click
+      }
+
+      let nextIndex = currentWaypointIndex;
+      if (actionType === 'left') {
+        nextIndex = Math.min(index + 1, routeData.length - 1);
+      } else {
+        nextIndex = index;
       }
 
       db.ref('liveTrack').update({
@@ -725,3 +718,4 @@
   </script>
 </body>
 </html>
+
