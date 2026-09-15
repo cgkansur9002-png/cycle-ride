@@ -354,7 +354,7 @@
       const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : (routeData[0] ? routeData[0].name : "Devikere");
 
       if (currentState.arrived && !currentState.left) {
-        marqueeEl.innerText = `📍 ARRIVED AT ${currentSpot.toUpperCase()}! 🛑 HALTING / DARSHAN IN PROGRESS | Speed: ${currentSpeed} KM/H`;
+        marqueeEl.innerText = `📍 ARRIVED AT ${currentSpot.toUpperCase()}! 🛑 RIDE REBEGINS SOON | Speed: ${currentSpeed} KM/H`;
         return;
       }
 
@@ -372,7 +372,7 @@
         }
       }
 
-      marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! Current Location: ${currentSpot} ➔ Heading to: ${nextSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
+      marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! MOVING TOWARDS ➔ ${currentSpot} | Speed: ${currentSpeed} KM/H`;
     }
 
     function updateScheduleStatusDisplay() {
