@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Sirsi Ganpati Darshan Live Tracker</title>
   
@@ -40,58 +40,43 @@
       position:relative;
     }
 
-    body::before{
-      content:'';
-      position:fixed;
-      inset:0;
-      background:
-      radial-gradient(circle at top right, rgba(56,189,248,.15), transparent 40%),
-      radial-gradient(circle at bottom left, rgba(34,197,94,.12), transparent 40%);
-      pointer-events:none;
-      z-index:-1;
-    }
-
     /* HEADER */
     header{
-      background:rgba(13,21,38,.90);
-      backdrop-filter:blur(18px);
-      -webkit-backdrop-filter:blur(18px);
-      border-bottom:1px solid rgba(255,255,255,.08);
-      padding:14px 22px;
+      background:#0d1526;
+      border-bottom:1px solid var(--border-color);
+      padding:12px 18px;
       display:flex;
       justify-content:space-between;
       align-items:center;
-      box-shadow:0 10px 30px rgba(0,0,0,.35);
       z-index:100;
+      flex-shrink:0;
     }
 
     .brand-wrap{
       display:flex;
       align-items:center;
-      gap:12px;
+      gap:10px;
     }
 
     .brand-badge{
-      background:linear-gradient(135deg, #0284c7, #38bdf8);
+      background:#0284c7;
       color:white;
       font-weight:800;
-      padding:8px 14px;
-      border-radius:12px;
-      font-size:.85rem;
-      letter-spacing:.5px;
-      box-shadow:0 10px 25px rgba(56,189,248,.25);
+      padding:6px 12px;
+      border-radius:8px;
+      font-size:.8rem;
     }
 
     .brand-title h1{
-      font-size:1.15rem;
+      font-size:1.1rem;
       color:white;
       font-weight:800;
     }
 
     .status-badge{
-      font-size:.8rem;
+      font-size:.75rem;
       font-weight:700;
-      padding:8px 14px;
+      padding:6px 12px;
       border-radius:100px;
       background:rgba(34,197,94,.15);
       color:#22c55e;
@@ -104,26 +89,28 @@
       border-color:rgba(239,68,68,.35);
     }
 
-    /* HERO BANNER */
+    /* FIXED RUNNING HERO STATUS BAR */
     .hero-status-bar{
-      background:linear-gradient(90deg, #09111d, #1d4ed8, #09111d);
+      background:#0f172a;
       border-bottom:2px solid #38bdf8;
-      padding:10px 0;
+      padding:8px 0;
       overflow:hidden;
       white-space:nowrap;
-      box-shadow:0 0 20px rgba(56,189,248,.20);
+      flex-shrink:0;
+      z-index:99;
+      width:100%;
     }
 
     .marquee-track{
       display:inline-block;
       white-space:nowrap;
       padding-left:100%;
-      animation:marquee-scroll 18s linear infinite;
+      animation:marquee-scroll 16s linear infinite;
       font-weight:800;
-      font-size:.95rem;
+      font-size:.9rem;
       letter-spacing:.5px;
       color:#dbeafe;
-      text-shadow:0 0 10px rgba(56,189,248,.6);
+      will-change:transform;
     }
 
     @keyframes marquee-scroll{
@@ -131,74 +118,77 @@
       100%{ transform:translateX(-100%); }
     }
 
-    /* DESKTOP LAYOUT (UNTOUCHED) */
+    /* MAIN CONTAINER */
     .dashboard-container{
       display:flex;
       flex:1;
-      height:calc(100vh - 105px);
+      height:calc(100vh - 90px);
+      overflow:hidden;
     }
 
     .sidebar{
       width:420px;
-      background:rgba(18,27,47,.75);
-      backdrop-filter:blur(16px);
-      border-right:1px solid rgba(255,255,255,.08);
+      background:var(--bg-card);
+      border-right:1px solid var(--border-color);
       display:flex;
       flex-direction:column;
+      height:100%;
     }
 
     /* CONTROL PANEL */
     .control-panel{
-      padding:18px;
-      background:rgba(13,21,38,.85);
-      border-bottom:1px solid rgba(255,255,255,.08);
+      padding:14px;
+      background:var(--bg-panel);
+      border-bottom:1px solid var(--border-color);
+      flex-shrink:0;
     }
 
     .metrics-grid{
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:12px;
+      gap:10px;
     }
 
     .stat-card{
-      background:linear-gradient(135deg, rgba(56,189,248,.10), rgba(18,27,47,.95));
-      border-radius:18px;
-      padding:18px;
-      border:1px solid rgba(255,255,255,.08);
-      box-shadow:0 10px 25px rgba(0,0,0,.25);
+      background:#1a263d;
+      border-radius:12px;
+      padding:14px;
+      border:1px solid var(--border-color);
     }
 
     .stat-card.delayed{
-      border-color:rgba(239,68,68,.40);
+      border-color:var(--accent-red);
     }
 
     .stat-card.green{
-      border-color:rgba(34,197,94,.30);
+      border-color:var(--accent-green);
     }
 
     .stat-label{
-      font-size:.7rem;
+      font-size:.65rem;
       color:var(--text-sub);
       font-weight:700;
       text-transform:uppercase;
     }
 
     .stat-value{
-      font-size:1.5rem;
+      font-size:1.3rem;
       font-weight:800;
-      margin-top:5px;
+      margin-top:4px;
       color:white;
     }
 
-    /* TIMELINE */
+    /* TIMELINE - FAST SCROLL OPTIMIZED */
     .timeline-container{
       flex:1;
       overflow-y:auto;
-      padding:20px 16px;
+      padding:16px 12px;
+      -webkit-overflow-scrolling:touch;
+      will-change:scroll-position;
     }
 
     .timeline-container::-webkit-scrollbar{
-      width:6px;
+      width:5px;
     }
 
     .timeline-container::-webkit-scrollbar-thumb{
@@ -208,15 +198,15 @@
 
     .timeline-item{
       position:relative;
-      padding-left:32px;
-      padding-bottom:24px;
+      padding-left:28px;
+      padding-bottom:18px;
     }
 
     .timeline-item::before{
       content:'';
       position:absolute;
-      left:10px;
-      top:24px;
+      left:8px;
+      top:20px;
       bottom:0;
       width:2px;
       background:rgba(255,255,255,.10);
@@ -228,7 +218,7 @@
 
     .timeline-node{
       position:absolute;
-      left:2px;
+      left:0px;
       top:4px;
       width:18px;
       height:18px;
@@ -236,7 +226,6 @@
       background:#0d1526;
       border:3px solid #64748b;
       z-index:2;
-      transition:.3s;
     }
 
     .timeline-item.reached .timeline-node{
@@ -247,32 +236,22 @@
     .timeline-item.current .timeline-node{
       border-color:#38bdf8;
       background:#070b14;
-      transform:scale(1.25);
-      box-shadow:0 0 20px rgba(56,189,248,.7);
+      transform:scale(1.2);
     }
 
     .timeline-card{
-      background:rgba(21,28,44,.72);
-      backdrop-filter:blur(18px);
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.08);
-      padding:16px;
-      box-shadow:0 10px 25px rgba(0,0,0,.25);
-      transition:.3s;
-    }
-
-    .timeline-card:hover{
-      transform:translateY(-3px);
-      border-color:#38bdf8;
+      background:#162238;
+      border-radius:14px;
+      border:1px solid var(--border-color);
+      padding:14px;
     }
 
     .timeline-item.current .timeline-card{
       border:2px solid #38bdf8;
-      box-shadow:0 0 25px rgba(56,189,248,.25);
     }
 
     .place-name{
-      font-size:1rem;
+      font-size:.95rem;
       font-weight:800;
       color:#fff;
       display:flex;
@@ -283,13 +262,13 @@
     .sched-time{
       color:#94a3b8;
       margin-top:4px;
-      font-size:.8rem;
+      font-size:.78rem;
     }
 
-    /* PHOTO PREVIEW STYLING */
+    /* PHOTO DOWNLOAD PREVIEW STYLING */
     .stop-photo-container{
-      margin-top:12px;
-      border-radius:12px;
+      margin-top:10px;
+      border-radius:10px;
       overflow:hidden;
       border:1px solid rgba(255,255,255,.15);
       position:relative;
@@ -297,32 +276,37 @@
 
     .stop-photo{
       width:100%;
-      max-height:180px;
+      max-height:160px;
       object-fit:cover;
       display:block;
       cursor:pointer;
-      transition:.3s;
     }
 
-    .stop-photo:hover{
-      transform:scale(1.03);
+    .photo-download-btn{
+      background:rgba(0,0,0,0.75);
+      color:#38bdf8;
+      font-size:.75rem;
+      font-weight:700;
+      padding:6px 10px;
+      border-radius:6px;
+      margin-top:6px;
+      display:inline-block;
+      text-decoration:none;
+      border:1px solid var(--accent-blue);
     }
 
     /* TELEMETRY */
     .telemetry-box{
-      margin-top:12px;
-      padding-top:10px;
+      margin-top:10px;
+      padding-top:8px;
       border-top:1px dashed rgba(255,255,255,.10);
       display:flex;
       flex-direction:column;
-      gap:6px;
-      font-size:.8rem;
+      gap:4px;
+      font-size:.78rem;
     }
 
-    .tele-tag{
-      font-weight:700;
-    }
-
+    .tele-tag{ font-weight:700; }
     .tele-tag.arrived{ color:#22c55e; }
     .tele-tag.left{ color:#f59e0b; }
     .tele-tag.spent{ color:#38bdf8; }
@@ -330,66 +314,37 @@
     /* BUTTONS */
     .btn-wrap{
       display:flex;
-      flex-wrap:wrap;
       gap:8px;
-      margin-top:12px;
+      margin-top:10px;
     }
 
     .action-btn{
       flex:1;
-      min-width:110px;
       border:none;
-      border-radius:10px;
+      border-radius:8px;
       padding:10px;
       color:white;
       font-weight:800;
       cursor:pointer;
-      transition:.25s;
-      font-size:.8rem;
+      font-size:.78rem;
     }
 
-    .action-btn:hover{
-      transform:translateY(-2px);
-    }
-
-    .btn-arrive{
-      background:linear-gradient(135deg, #10b981, #059669);
-    }
-
-    .btn-left{
-      background:linear-gradient(135deg, #f59e0b, #d97706);
-    }
-
-    .btn-photo{
-      background:linear-gradient(135deg, #8b5cf6, #6d28d9);
-    }
+    .btn-arrive{ background:#059669; }
+    .btn-left{ background:#d97706; }
+    .btn-photo{ background:#6d28d9; }
 
     .travel-connector{
-      font-size:.75rem;
+      font-size:.72rem;
       color:#c084fc;
       font-weight:700;
-      padding:4px 0 10px 32px;
+      padding:2px 0 8px 28px;
     }
 
-    /* MAP */
+    /* MAP CONTAINER */
     .map-container{
       flex:1;
       position:relative;
-    }
-
-    .map-container::after{
-      content:'LIVE GPS TRACKING';
-      position:absolute;
-      top:15px;
-      right:15px;
-      background:rgba(0,0,0,.7);
-      color:#38bdf8;
-      padding:10px 16px;
-      border-radius:999px;
-      font-size:.75rem;
-      font-weight:800;
-      z-index:1000;
-      backdrop-filter:blur(10px);
+      height:100%;
     }
 
     #map{
@@ -399,129 +354,75 @@
     }
 
     .cycle-marker-icon{
-      font-size:28px;
+      font-size:26px;
       text-align:center;
-      filter:drop-shadow(0 5px 10px rgba(0,0,0,.50));
     }
 
     .custom-pin-icon{
       display:flex;
       justify-content:center;
       align-items:center;
-      filter:drop-shadow(0 3px 6px rgba(0,0,0,.50));
     }
 
-    /* HIGH OPTIMIZED MOBILE STYLING (MAX-WIDTH: 768PX) */
+    /* ULTRA STABLE MOBILE LAYOUT FIXES */
     @media(max-width:768px){
-      header{
-        padding:10px 14px;
-      }
-      .brand-title h1{
-        font-size:.95rem;
-      }
-      .brand-badge{
-        font-size:.7rem;
-        padding:6px 10px;
-        border-radius:8px;
-      }
-      .status-badge{
-        font-size:.7rem;
-        padding:6px 10px;
+      body{
+        height:100vh;
+        overflow:hidden;
       }
 
+      header{
+        padding:8px 12px;
+      }
+      .brand-title h1{ font-size:.9rem; }
+      .brand-badge{ font-size:.7rem; padding:4px 8px; }
+      .status-badge{ font-size:.65rem; padding:4px 8px; }
+
       .hero-status-bar{
-        padding:8px 0;
+        padding:6px 0;
       }
-      .marquee-track{
-        font-size:.8rem;
-      }
+      .marquee-track{ font-size:.8rem; }
 
       .dashboard-container{
         flex-direction:column;
-        height:calc(100vh - 85px);
+        height:calc(100vh - 75px);
       }
 
-      /* TOP MAP VIEW FOR MOBILE */
       .map-container{
-        height:38vh;
-        min-height:220px;
+        height:32vh;
+        min-height:180px;
         flex:none;
       }
 
-      .map-container::after{
-        top:10px;
-        right:10px;
-        font-size:.65rem;
-        padding:6px 12px;
-      }
-
-      /* BOTTOM TIMELINE & CONTROLS FOR MOBILE */
       .sidebar{
         width:100%;
         flex:1;
         border-right:none;
-        border-top:2px solid rgba(56,189,248,.3);
+        border-top:2px solid var(--accent-blue);
+        height:auto;
         overflow:hidden;
       }
 
       .control-panel{
-        padding:12px;
-      }
-
-      .metrics-grid{
-        gap:8px;
+        padding:10px;
       }
 
       .stat-card{
-        padding:12px;
-        border-radius:14px;
-      }
-
-      .stat-label{
-        font-size:.65rem;
+        padding:10px;
       }
 
       .stat-value{
-        font-size:1.2rem;
+        font-size:1.1rem;
       }
 
       .timeline-container{
-        padding:14px 12px;
-      }
-
-      .timeline-item{
-        padding-left:26px;
-        padding-bottom:16px;
-      }
-
-      .timeline-node{
-        left:1px;
-        width:14px;
-        height:14px;
-      }
-
-      .timeline-card{
-        padding:12px;
-        border-radius:14px;
-      }
-
-      .place-name{
-        font-size:.9rem;
-      }
-
-      .stop-photo{
-        max-height:150px;
+        padding:12px 10px;
+        touch-action:pan-y;
       }
 
       .action-btn{
-        padding:12px 8px;
-        font-size:.8rem;
-        border-radius:8px;
-      }
-
-      .travel-connector{
-        padding:2px 0 8px 26px;
-        font-size:.7rem;
+        padding:12px 6px;
+        font-size:.75rem;
       }
     }
   </style>
@@ -538,6 +439,7 @@
     <div id="mode-badge" class="status-badge">● LIVE VIEWER</div>
   </header>
 
+  <!-- ALWAYS VISIBLE TOP MARQUEE RUNNING STATUS -->
   <div class="hero-status-bar">
     <div class="marquee-track" id="live-hero-status">
       🔥 PREPARING FOR LAUNCH: GET READY FOR SIRSI GANPATI DARSHAN RIDE!
@@ -567,7 +469,6 @@
     </div>
   </div>
 
-  <!-- DIRECT CAMERA ACCESS INPUT -->
   <input type="file" id="photo-file-input" accept="image/*" capture="environment" style="display:none;">
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -622,11 +523,11 @@
 
     function createPinIcon(color) {
       const svgPin = `
-        <svg width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="22" height="30" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z" fill="${color}"/>
         </svg>
       `;
-      return L.divIcon({ className: 'custom-pin-icon', html: svgPin, iconSize: [24, 32], iconAnchor: [12, 32] });
+      return L.divIcon({ className: 'custom-pin-icon', html: svgPin, iconSize: [22, 30], iconAnchor: [11, 30] });
     }
 
     async function fetchOSRMRoute() {
@@ -680,22 +581,22 @@
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         referrerPolicy: 'strict-origin-when-cross-origin',
-        attribution: '&copy; OpenStreetMap contributors'
+        attribution: '&copy; OpenStreetMap'
       }).addTo(map);
 
-      completedPolyline = L.polyline([], { color: '#22c55e', weight: 3, opacity: 0.65 }).addTo(map);
-      upcomingPolyline = L.polyline([], { color: '#64748b', weight: 3, opacity: 0.65, dashArray: '5, 5' }).addTo(map);
+      completedPolyline = L.polyline([], { color: '#22c55e', weight: 3, opacity: 0.8 }).addTo(map);
+      upcomingPolyline = L.polyline([], { color: '#64748b', weight: 3, opacity: 0.6, dashArray: '5, 5' }).addTo(map);
 
       routeData.forEach((pt, index) => {
         const pinColor = isPointArrived(index) ? '#22c55e' : '#64748b';
         const marker = L.marker([pt.lat, pt.lng], { icon: createPinIcon(pinColor) })
           .addTo(map)
-          .bindPopup(`<div style="color:#000;"><b>${index + 1}. ${pt.name}</b><br>Scheduled: ${pt.time}</div>`);
+          .bindPopup(`<div style="color:#000;"><b>${index + 1}. ${pt.name}</b><br>Time: ${pt.time}</div>`);
         
         mapMarkers.push(marker);
       });
 
-      const cycleIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚴‍♂️', iconSize: [30, 30], iconAnchor: [15, 15] });
+      const cycleIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚴‍♂️', iconSize: [28, 28], iconAnchor: [14, 14] });
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: cycleIcon }).addTo(map);
 
       fetchOSRMRoute();
@@ -725,17 +626,17 @@
       }
 
       if (currentWaypointIndex === totalStops - 1 && curState.arrived) {
-        banner.innerHTML = `🏆 RIDE COMPLETED! VICTORY AT ${curSpot.name.toUpperCase()}! SHREE GANPATI BAPPA MORYA! 🎉 &nbsp;&nbsp;•&nbsp;&nbsp; ALL STOPS COVERED!`;
+        banner.innerHTML = `🏆 RIDE COMPLETED! VICTORY AT ${curSpot.name.toUpperCase()}! SHREE GANPATI BAPPA MORYA! 🎉`;
         return;
       }
 
       if (curState.arrived && !curState.left) {
-        banner.innerHTML = `✨ RIDER HAS ARRIVED AT ${curSpot.name.toUpperCase()}! DARSHAN IN PROGRESS! 🙏 &nbsp;&nbsp;•&nbsp;&nbsp; LIVE UPDATES ACTIVE`;
+        banner.innerHTML = `✨ RIDER HAS ARRIVED AT ${curSpot.name.toUpperCase()}! DARSHAN IN PROGRESS! 🙏`;
       } else if (curState.left && nextSpot) {
         const legDist = calculateLegDistance(currentWaypointIndex, currentWaypointIndex + 1);
-        banner.innerHTML = `🚀 ON THE MOVE! RIDER LEFT ${curSpot.name.toUpperCase()} — JUST ${legDist} KM AWAY FROM ${nextSpot.name.toUpperCase()}! 🚴‍♂️💨 &nbsp;&nbsp;•&nbsp;&nbsp; NEXT STOP: ${nextSpot.name.toUpperCase()}`;
+        banner.innerHTML = `🚀 ON THE MOVE! RIDER LEFT ${curSpot.name.toUpperCase()} — JUST ${legDist} KM AWAY FROM ${nextSpot.name.toUpperCase()}! 🚴‍♂️💨`;
       } else {
-        banner.innerHTML = `🚴‍♂️ RIDER IS SPEEDING TOWARDS ${curSpot.name.toUpperCase()}! STAND BY FOR ARRIVAL! 🔥 &nbsp;&nbsp;•&nbsp;&nbsp; LIVE TRACKING`;
+        banner.innerHTML = `🚴‍♂️ RIDER IS SPEEDING TOWARDS ${curSpot.name.toUpperCase()}! STAND BY FOR ARRIVAL! 🔥`;
       }
     }
 
@@ -780,6 +681,16 @@
       return diff >= 0 ? diff : null;
     }
 
+    // DIRECT DOWNLOAD TRIGGER FOR PHOTO
+    function downloadPhoto(url, placeName) {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Ganpati_Darshan_${placeName.replace(/\s+/g, '_')}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
     function renderTimeline() {
       const container = document.getElementById('timeline');
       container.innerHTML = '';
@@ -813,8 +724,9 @@
 
             ${photoUrl ? `
               <div class="stop-photo-container">
-                <img src="${photoUrl}" class="stop-photo" alt="Photo at ${pt.name}" onclick="window.open('${photoUrl}', '_blank')">
+                <img src="${photoUrl}" class="stop-photo" alt="Photo at ${pt.name}" onclick="downloadPhoto('${photoUrl}', '${pt.name}')">
               </div>
+              <a href="javascript:void(0)" class="photo-download-btn" onclick="downloadPhoto('${photoUrl}', '${pt.name}')">📥 Click to Download Photo</a>
             ` : ''}
 
             ${(arrivedTime || leftTime || timeSpent !== null) ? `
@@ -850,7 +762,6 @@
       });
     }
 
-    // PHOTO UPLOAD & CAMERA TRIGGER HANDLING
     function triggerPhotoUpload(index) {
       selectedIndexForPhoto = index;
       document.getElementById('photo-file-input').click();
@@ -886,7 +797,6 @@
 
           db.ref(`liveTrack/waypoints/${selectedIndexForPhoto}/photo`).set(base64Image);
           selectedIndexForPhoto = null;
-          
           e.target.value = '';
         };
         img.src = event.target.result;
@@ -942,7 +852,6 @@
 
         const currentPt = routeData[currentWaypointIndex];
         cycleMarker.setLatLng([currentPt.lat, currentPt.lng]);
-        map.panTo([currentPt.lat, currentPt.lng]);
 
         updateHeroStatusBanner();
         updatePathLines();
