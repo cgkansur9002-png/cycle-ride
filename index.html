@@ -344,6 +344,17 @@
     }
 
     function updateHeroMarquee(currentLat, currentLng) {
+      const marqueeEl = document.getElementById('live-hero-status');
+      const currentState = waypointsState[currentWaypointIndex] || {};
+
+      // Agar current stop par arrive ho chuka hai par left nahi hua, toh ARRIVED show karo
+      if (currentState.arrived && !currentState.left) {
+        const arrivedSpotName = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "Sirsi";
+        marqueeEl.innerText = `📍 ARRIVED AT ${arrivedSpotName.toUpperCase()}! 🛑 HALTING / DARSHAN IN PROGRESS | Speed: ${currentSpeed} KM/H`;
+        return;
+      }
+
+      // Warna normal "Current ➔ Next" transit mode show karo
       const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "Sirsi";
       const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
       const nextSpot = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
@@ -359,7 +370,6 @@
         }
       }
 
-      const marqueeEl = document.getElementById('live-hero-status');
       marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! Current Location: ${currentSpot} ➔ Heading to: ${nextSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
     }
 
