@@ -89,7 +89,7 @@
       border-color:rgba(239,68,68,.35);
     }
 
-    /* FIXED RUNNING HERO STATUS BAR */
+    /* MARQUEE HEADER */
     .hero-status-bar{
       background:#0f172a;
       border-bottom:2px solid #38bdf8;
@@ -118,7 +118,7 @@
       100%{ transform:translateX(-100%); }
     }
 
-    /* MAIN CONTAINER */
+    /* DASHBOARD */
     .dashboard-container{
       display:flex;
       flex:1;
@@ -135,7 +135,6 @@
       height:100%;
     }
 
-    /* CONTROL PANEL */
     .control-panel{
       padding:14px;
       background:var(--bg-panel);
@@ -178,7 +177,7 @@
       color:white;
     }
 
-    /* TIMELINE - FAST SCROLL OPTIMIZED */
+    /* TIMELINE */
     .timeline-container{
       flex:1;
       overflow-y:auto;
@@ -265,7 +264,7 @@
       font-size:.78rem;
     }
 
-    /* HIDE / UNHIDE PHOTO TOGGLE CONTAINER */
+    /* PHOTO MANAGEMENT */
     .photo-section-wrap{
       margin-top:10px;
     }
@@ -282,23 +281,17 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      transition:.2s;
-    }
-
-    .photo-toggle-btn:hover{
-      background:rgba(56,189,248,0.25);
     }
 
     .stop-photo-container{
       margin-top:8px;
-      display:none; /* HIDDEN BY DEFAULT TO SAVE MOBILE SPACE */
+      display:none;
     }
 
     .stop-photo-container.visible{
       display:block;
     }
 
-    /* MULTI PHOTO GRID HORIZONTAL SCROLL */
     .photos-gallery-grid{
       display:flex;
       gap:8px;
@@ -315,6 +308,7 @@
       background:#0d1526;
       display:flex;
       flex-direction:column;
+      position:relative;
     }
 
     .stop-photo{
@@ -325,16 +319,27 @@
       cursor:pointer;
     }
 
-    .photo-download-btn{
+    .photo-actions-bar{
+      display:flex;
+      border-top:1px solid var(--border-color);
+    }
+
+    .photo-btn-action{
+      flex:1;
       background:rgba(0,0,0,0.75);
       color:#38bdf8;
       font-size:.68rem;
       font-weight:700;
-      padding:5px 6px;
+      padding:6px 4px;
       text-align:center;
-      display:block;
       text-decoration:none;
-      border-top:1px solid var(--border-color);
+      border:none;
+      cursor:pointer;
+    }
+
+    .photo-btn-action.btn-del-photo{
+      color:#ef4444;
+      border-left:1px solid var(--border-color);
     }
 
     /* TELEMETRY */
@@ -382,7 +387,6 @@
       padding:2px 0 8px 28px;
     }
 
-    /* MAP CONTAINER */
     .map-container{
       flex:1;
       position:relative;
@@ -395,77 +399,25 @@
       background:#111;
     }
 
-    .cycle-marker-icon{
-      font-size:26px;
-      text-align:center;
-    }
+    .cycle-marker-icon{ font-size:26px; text-align:center; }
+    .custom-pin-icon{ display:flex; justify-content:center; align-items:center; }
 
-    .custom-pin-icon{
-      display:flex;
-      justify-content:center;
-      align-items:center;
-    }
-
-    /* ULTRA STABLE MOBILE LAYOUT FIXES */
     @media(max-width:768px){
-      body{
-        height:100vh;
-        overflow:hidden;
-      }
-
-      header{
-        padding:8px 12px;
-      }
+      body{ height:100vh; overflow:hidden; }
+      header{ padding:8px 12px; }
       .brand-title h1{ font-size:.9rem; }
       .brand-badge{ font-size:.7rem; padding:4px 8px; }
       .status-badge{ font-size:.65rem; padding:4px 8px; }
-
-      .hero-status-bar{
-        padding:6px 0;
-      }
+      .hero-status-bar{ padding:6px 0; }
       .marquee-track{ font-size:.8rem; }
-
-      .dashboard-container{
-        flex-direction:column;
-        height:calc(100vh - 75px);
-      }
-
-      .map-container{
-        height:32vh;
-        min-height:180px;
-        flex:none;
-      }
-
-      .sidebar{
-        width:100%;
-        flex:1;
-        border-right:none;
-        border-top:2px solid var(--accent-blue);
-        height:auto;
-        overflow:hidden;
-      }
-
-      .control-panel{
-        padding:10px;
-      }
-
-      .stat-card{
-        padding:10px;
-      }
-
-      .stat-value{
-        font-size:1.05rem;
-      }
-
-      .timeline-container{
-        padding:12px 10px;
-        touch-action:pan-y;
-      }
-
-      .action-btn{
-        padding:12px 6px;
-        font-size:.75rem;
-      }
+      .dashboard-container{ flex-direction:column; height:calc(100vh - 75px); }
+      .map-container{ height:32vh; min-height:180px; flex:none; }
+      .sidebar{ width:100%; flex:1; border-right:none; border-top:2px solid var(--accent-blue); height:auto; overflow:hidden; }
+      .control-panel{ padding:10px; }
+      .stat-card{ padding:10px; }
+      .stat-value{ font-size:1.05rem; }
+      .timeline-container{ padding:12px 10px; touch-action:pan-y; }
+      .action-btn{ padding:12px 6px; font-size:.75rem; }
     }
   </style>
 </head>
@@ -481,7 +433,6 @@
     <div id="mode-badge" class="status-badge">● LIVE VIEWER</div>
   </header>
 
-  <!-- ALWAYS VISIBLE TOP MARQUEE RUNNING STATUS -->
   <div class="hero-status-bar">
     <div class="marquee-track" id="live-hero-status">
       🔥 PREPARING FOR LAUNCH: GET READY FOR SIRSI GANPATI DARSHAN RIDE!
@@ -723,7 +674,6 @@
       return diff >= 0 ? diff : null;
     }
 
-    // DIRECT DOWNLOAD TRIGGER WITH PLACE NAME (e.g., Devikere_Ganapati.jpg)
     function downloadPhoto(url, placeName) {
       const cleanName = placeName.trim().replace(/\s+/g, '_');
       const link = document.createElement('a');
@@ -734,7 +684,24 @@
       document.body.removeChild(link);
     }
 
-    // TOGGLE HIDE / UNHIDE PHOTO
+    // DELETE PHOTO FUNCTION (ADMIN ONLY)
+    function deletePhoto(stopIndex, photoIndex) {
+      if (!isAdmin) return;
+      if (!confirm("Are you sure you want to delete this photo?")) return;
+
+      const state = waypointsState[stopIndex] || {};
+      let photos = Array.isArray(state.photos) ? [...state.photos] : (state.photo ? [state.photo] : []);
+
+      photos.splice(photoIndex, 1);
+
+      if (photos.length > 0) {
+        db.ref(`liveTrack/waypoints/${stopIndex}/photos`).set(photos);
+      } else {
+        db.ref(`liveTrack/waypoints/${stopIndex}/photos`).remove();
+        db.ref(`liveTrack/waypoints/${stopIndex}/photo`).remove();
+      }
+    }
+
     function togglePhotoVisibility(index) {
       const container = document.getElementById(`photo-box-${index}`);
       const btn = document.getElementById(`photo-btn-${index}`);
@@ -763,7 +730,6 @@
         const arrivedTime = state.arrived || null;
         const leftTime = state.left || null;
         
-        // Handle single or multiple photos array backward compatibility
         let photos = [];
         if (Array.isArray(state.photos)) {
           photos = state.photos;
@@ -791,10 +757,13 @@
                 <button id="photo-btn-${idx}" class="photo-toggle-btn" onclick="togglePhotoVisibility(${idx})">📷 Show Photos (${photos.length})</button>
                 <div id="photo-box-${idx}" class="stop-photo-container">
                   <div class="photos-gallery-grid">
-                    ${photos.map(pUrl => `
+                    ${photos.map((pUrl, pIdx) => `
                       <div class="photo-card-item">
                         <img src="${pUrl}" class="stop-photo" alt="Photo at ${pt.name}" onclick="downloadPhoto('${pUrl}', '${pt.name}')">
-                        <a href="javascript:void(0)" class="photo-download-btn" onclick="downloadPhoto('${pUrl}', '${pt.name}')">📥 Download</a>
+                        <div class="photo-actions-bar">
+                          <button class="photo-btn-action" onclick="downloadPhoto('${pUrl}', '${pt.name}')">📥 Save</button>
+                          ${isAdmin ? `<button class="photo-btn-action btn-del-photo" onclick="deletePhoto(${idx}, ${pIdx})">🗑️ Delete</button>` : ''}
+                        </div>
                       </div>
                     `).join('')}
                   </div>
@@ -817,7 +786,7 @@
                 ${!isCurrentSpot && waypointsState[idx - 1]?.left && !arrivedTime ? `<button class="action-btn btn-arrive" onclick="handleAdminAction(${idx}, 'arrive')">ARRIVED NOW</button>` : ''}
                 
                 ${arrivedTime ? `
-                  <button class="action-btn btn-photo" onclick="triggerPhotoUpload(${idx})">📷 ADD PHOTOS</button>
+                  <button class="action-btn btn-photo" onclick="triggerPhotoUpload(${idx})">📷 ADD / CHANGE PHOTOS</button>
                 ` : ''}
               </div>
             ` : ''}
@@ -840,7 +809,6 @@
       document.getElementById('photo-file-input').click();
     }
 
-    // HANDLES MULTIPLE PHOTOS UPLOADING & COMPRESSION
     document.getElementById('photo-file-input').addEventListener('change', async function(e) {
       const files = Array.from(e.target.files);
       if (!files.length || selectedIndexForPhoto === null) return;
@@ -861,7 +829,7 @@
       }
 
       db.ref(`liveTrack/waypoints/${idx}/photos`).set(existingPhotos);
-      db.ref(`liveTrack/waypoints/${idx}/photo`).remove(); // cleanup old single photo ref
+      db.ref(`liveTrack/waypoints/${idx}/photo`).remove(); 
 
       selectedIndexForPhoto = null;
       e.target.value = '';
@@ -954,7 +922,6 @@
       }
     });
 
-    // FORMAT MINUTES TO HOURS & MINUTES SMART FORMAT
     function formatMinutesToHours(mins) {
       const absMins = Math.abs(mins);
       if (absMins < 60) {
