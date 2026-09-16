@@ -254,7 +254,7 @@
     let map, cycleMarker;
     let mapMarkers = [];
     let watchId = null;
-    let watchId2 = null; // separate GPS watch for Rider 2
+    let watchId2 = null; 
     let selectedIndexForPhoto = null;
     let coveredPolyline, remainingPolyline;
     let fullRoadPath = [];
@@ -265,8 +265,9 @@
     let lastGPSAt = 0;
     let routeTotalDistanceKm = 0;
     let coveredDistanceKm = 0;
+    let waypointPathIndices = []; // NEW: Added logic array to store exact route points
 
-    let riderTwoMarker = null; // Rider 2's own marker on the map
+    let riderTwoMarker = null;
 
     function toggleLiveRiderGPS() {
       const btn = document.getElementById('gps-btn');
@@ -357,8 +358,6 @@
     db.ref('liveTrack/gpsSources').on('value', (snapshot) => {
       const sources = snapshot.val() || {};
 
-      // RIDER 1 drives the main cycle marker + all the stats (marquee, distance, road progress) —
-      // same as the original single-rider behaviour.
       const r1 = sources.rider1;
       if (r1 && typeof r1.lat === 'number' && typeof r1.lng === 'number') {
         latestGPS = [r1.lat, r1.lng];
@@ -377,8 +376,6 @@
         if (autoFollowRider) map.panTo(latestGPS, {animate:true,duration:.35});
       }
 
-      // RIDER 2 gets shown as its own separate marker on the map, purely for visibility —
-      // it doesn't affect distance/progress/marquee stats.
       const r2 = sources.rider2;
       if (r2 && typeof r2.lat === 'number' && typeof r2.lng === 'number') {
         const pos = [r2.lat, r2.lng];
@@ -479,8 +476,9 @@
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], {icon:cycleIcon,zIndexOffset:1000}).addTo(map);
       updateRiderPopup("Devikere", "Maratikoppa");
 
-      coveredPolyline = L.polyline([], {color:'#16a34a',weight:5,opacity:.9}).addTo(map);
-      remainingPolyline = L.polyline([], {color:'#94a3b8',weight:4,opacity:.7,dashArray:'6, 8'}).addTo(map);
+      // NEW: Covered route is thick Green. Remaining route is THIN Green and dashed!
+      coveredPolyline = L.polyline([], {color:'#16a34a',weight:6,opacity:1}).addTo(map);
+      remainingPolyline = L.polyline([], {color:'#16a34a',weight:3,opacity:.7,dashArray:'5, 8'}).addTo(map);
 
       document.getElementById('recenter-btn').addEventListener('click', () => {
         autoFollowRider = true;
@@ -503,26 +501,41 @@
         const data = await res.json();
         if (data.routes && data.routes[0]) {
           fullRoadPath = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+          
+          // NEW LOGIC: Lock path segments forward sequentially to fix "upar-niche" route jumps
+          waypointPathIndices = [];
+          let searchStartIndex = 0;
+          routeData.forEach(pt => {
+            let minD = Infinity, minI = searchStartIndex;
+            for(let i = searchStartIndex; i < fullRoadPath.length; i++) {
+              const d = calculateDistance(pt.lat, pt.lng, fullRoadPath[i][0], fullRoadPath[i][1]);
+              if (d < minD) { minD = d; minI = i; }
+            }
+            waypointPathIndices.push(minI);
+            searchStartIndex = minI;
+          });
+
           updateDynamicRoadLines();
         }
       } catch (e) {
         fullRoadPath = routeData.map(p => [p.lat, p.lng]);
+        waypointPathIndices = routeData.map((_, i) => i);
         updateDynamicRoadLines();
       }
     }
 
     function updateDynamicRoadLines() {
-      if (!fullRoadPath.length || !coveredPolyline || !remainingPolyline) return;
+      // NEW LOGIC: Base covered route ONLY on clicks to "Arrived", ignore GPS moving ahead for the lines
+      if (!fullRoadPath.length || !coveredPolyline || !remainingPolyline || waypointPathIndices.length === 0) return;
 
-      const target = latestGPS
-        ? {lat:latestGPS[0],lng:latestGPS[1]}
-        : routeData[Math.min(currentWaypointIndex, routeData.length - 1)];
+      let lastArrivedIndex = 0;
+      for (let i = 0; i < routeData.length; i++) {
+        if (waypointsState[i] && waypointsState[i].arrived) {
+          lastArrivedIndex = i;
+        }
+      }
 
-      let splitIdx = 0, minDistance = Infinity;
-      fullRoadPath.forEach((pt, i) => {
-        const d = calculateDistance(target.lat, target.lng, pt[0], pt[1]);
-        if (d < minDistance) { minDistance = d; splitIdx = i; }
-      });
+      let splitIdx = waypointPathIndices[lastArrivedIndex];
 
       coveredPolyline.setLatLngs(fullRoadPath.slice(0, splitIdx + 1));
       remainingPolyline.setLatLngs(fullRoadPath.slice(splitIdx));
@@ -654,7 +667,6 @@
 
         let photos = Array.isArray(state.photos) ? state.photos : (state.photo ? [state.photo] : []);
 
-        // Halting Time calculation (inside stop card)
         let haltingTimeHtml = '';
         if (state.arrived && state.left) {
           const [arrH, arrM] = state.arrived.split(':').map(Number);
@@ -667,7 +679,6 @@
           }
         }
 
-        // Travel Duration calculation (OUTSIDE the boxes, placed between items)
         let travelDurationOutsideHtml = '';
         if (idx > 0) {
           const prevState = waypointsState[idx - 1] || {};
@@ -720,9 +731,6 @@
             ` : ''}
           </div>
         `;
-        // BUGFIX: this badge shows travel time from the PREVIOUS stop to THIS stop,
-        // so it must be inserted before this item (between prev card and this card) —
-        // appending it after this item pushed it down to sit between this card and the next one.
         if (travelDurationOutsideHtml) {
           container.insertAdjacentHTML('beforeend', travelDurationOutsideHtml);
         }
@@ -838,6 +846,15 @@
       if (data) {
         currentWaypointIndex = Math.max(0, Math.min(Number(data.index) || 0, routeData.length - 1));
         waypointsState = data.waypoints || {};
+        
+        // BONUS FIX: Jo jagah tum arrived par click karoge, map me us jagah ka marker blue se green ho jayega
+        routeData.forEach((pt, idx) => {
+          if (mapMarkers[idx]) {
+            const isArrived = waypointsState[idx] && waypointsState[idx].arrived;
+            mapMarkers[idx].setIcon(createPinIcon(isArrived ? '#16a34a' : '#0284c7'));
+          }
+        });
+
         renderTimeline();
         updateDynamicRoadLines();
       }
