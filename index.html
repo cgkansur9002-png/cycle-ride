@@ -182,6 +182,7 @@
       <div class="control-panel">
         <div id="admin-gps-panel" style="display:none;">
           <button id="gps-btn" class="gps-toggle-btn" onclick="toggleLiveRiderGPS()">📡 START RIDER LIVE GPS</button>
+          <button id="gps-btn-2" class="gps-toggle-btn" style="background:#7c3aed; box-shadow:0 4px 12px rgba(124,58,237,0.2);" onclick="toggleLiveRiderGPS2()">🚵 START RIDER 2 LIVE GPS</button>
         </div>
         <div class="route-progress" aria-label="Route progress"><div></div></div>
         <div class="metrics-grid">
@@ -253,6 +254,7 @@
     let map, cycleMarker;
     let mapMarkers = [];
     let watchId = null;
+    let watchId2 = null; // separate GPS watch for Rider 2
     let selectedIndexForPhoto = null;
     let coveredPolyline, remainingPolyline;
     let fullRoadPath = [];
@@ -263,24 +265,140 @@
     let lastGPSAt = 0;
     let routeTotalDistanceKm = 0;
     let coveredDistanceKm = 0;
-    let riderMarkers = {}; // deviceId -> L.marker, for showing every active GPS share on the map at once
 
-    // Each phone that shares GPS (you, your friend, anyone else with the admin link)
-    // gets its own persistent ID, stored on that phone only. This means two people
-    // can broadcast location at the same time without overwriting each other's data.
-    function getDeviceId() {
-      try {
-        let id = localStorage.getItem('sirsiRiderDeviceId');
-        if (!id) {
-          id = 'rider_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-          localStorage.setItem('sirsiRiderDeviceId', id);
-        }
-        return id;
-      } catch (e) {
-        return 'rider_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    let riderTwoMarker = null; // Rider 2's own marker on the map
+
+    function toggleLiveRiderGPS() {
+      const btn = document.getElementById('gps-btn');
+
+      if (!navigator.geolocation) {
+        alert("GPS permission not supported in your browser.");
+        return;
+      }
+
+      if (watchId === null) {
+        watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            const { latitude, longitude, speed } = position.coords;
+            const spd = speed != null && Number.isFinite(speed) ? Number((speed * 3.6).toFixed(1)) : 0;
+
+            db.ref('liveTrack/gpsSources/rider1').set({
+              lat: latitude,
+              lng: longitude,
+              speed: spd,
+              timestamp: Date.now()
+            });
+
+            btn.innerText = "🛑 STOP LIVE GPS (TRACKING ON)";
+            btn.style.background = "#dc2626";
+          },
+          (error) => {
+            console.error("GPS Error:", error);
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+            btn.innerText = "📡 START RIDER LIVE GPS";
+            btn.style.background = "#0284c7";
+            alert("GPS Error: " + error.message);
+          },
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+        );
+      } else {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+        db.ref('liveTrack/gpsSources/rider1').remove();
+        btn.innerText = "📡 START RIDER LIVE GPS";
+        btn.style.background = "#0284c7";
       }
     }
-    const myGPSDeviceId = getDeviceId();
+
+    function toggleLiveRiderGPS2() {
+      const btn = document.getElementById('gps-btn-2');
+
+      if (!navigator.geolocation) {
+        alert("GPS permission not supported in your browser.");
+        return;
+      }
+
+      if (watchId2 === null) {
+        watchId2 = navigator.geolocation.watchPosition(
+          (position) => {
+            const { latitude, longitude, speed } = position.coords;
+            const spd = speed != null && Number.isFinite(speed) ? Number((speed * 3.6).toFixed(1)) : 0;
+
+            db.ref('liveTrack/gpsSources/rider2').set({
+              lat: latitude,
+              lng: longitude,
+              speed: spd,
+              timestamp: Date.now()
+            });
+
+            btn.innerText = "🛑 STOP RIDER 2 GPS (TRACKING ON)";
+            btn.style.background = "#dc2626";
+          },
+          (error) => {
+            console.error("GPS Error (Rider 2):", error);
+            navigator.geolocation.clearWatch(watchId2);
+            watchId2 = null;
+            btn.innerText = "🚵 START RIDER 2 LIVE GPS";
+            btn.style.background = "#7c3aed";
+            alert("GPS Error: " + error.message);
+          },
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+        );
+      } else {
+        navigator.geolocation.clearWatch(watchId2);
+        watchId2 = null;
+        db.ref('liveTrack/gpsSources/rider2').remove();
+        btn.innerText = "🚵 START RIDER 2 LIVE GPS";
+        btn.style.background = "#7c3aed";
+      }
+    }
+
+    db.ref('liveTrack/gpsSources').on('value', (snapshot) => {
+      const sources = snapshot.val() || {};
+
+      // RIDER 1 drives the main cycle marker + all the stats (marquee, distance, road progress) —
+      // same as the original single-rider behaviour.
+      const r1 = sources.rider1;
+      if (r1 && typeof r1.lat === 'number' && typeof r1.lng === 'number') {
+        latestGPS = [r1.lat, r1.lng];
+        currentSpeed = Number(r1.speed) || 0;
+        cycleMarker.setLatLng(latestGPS);
+
+        const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "";
+        const nextSpot = routeData[currentWaypointIndex + 1] ? routeData[currentWaypointIndex + 1].name : "Finish";
+
+        updateRiderPopup(currentSpot, nextSpot);
+        updateHeroMarquee(r1.lat, r1.lng);
+        updateDistanceDisplay();
+        updateDynamicRoadLines();
+        updateGPSFreshness(r1.timestamp);
+
+        if (autoFollowRider) map.panTo(latestGPS, {animate:true,duration:.35});
+      }
+
+      // RIDER 2 gets shown as its own separate marker on the map, purely for visibility —
+      // it doesn't affect distance/progress/marquee stats.
+      const r2 = sources.rider2;
+      if (r2 && typeof r2.lat === 'number' && typeof r2.lng === 'number') {
+        const pos = [r2.lat, r2.lng];
+        if (!riderTwoMarker) {
+          const icon2 = L.divIcon({ className: 'cycle-marker-icon', html: '🚵', iconSize: [28, 28], iconAnchor: [14, 14] });
+          riderTwoMarker = L.marker(pos, { icon: icon2 }).addTo(map);
+        } else {
+          riderTwoMarker.setLatLng(pos);
+        }
+        riderTwoMarker.bindPopup(`
+          <div class="rider-popup-card">
+            <div class="rider-popup-title">🚵 RIDER 2</div>
+            <div class="speedometer-badge">⚡ ${Number(r2.speed) || 0} KM/H</div>
+          </div>
+        `);
+      } else if (riderTwoMarker) {
+        map.removeLayer(riderTwoMarker);
+        riderTwoMarker = null;
+      }
+    });
 
     function createPinIcon(color) {
       const svgPin = `<svg width="22" height="30" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z" fill="${color}"/></svg>`;
@@ -520,118 +638,6 @@
         delayText.innerHTML = "ON TIME";
       }
     }
-
-    function toggleLiveRiderGPS() {
-      const btn = document.getElementById('gps-btn');
-
-      if (!navigator.geolocation) {
-        alert("GPS permission not supported in your browser.");
-        return;
-      }
-
-      if (watchId === null) {
-        watchId = navigator.geolocation.watchPosition(
-          (position) => {
-            const { latitude, longitude, speed } = position.coords;
-            currentSpeed = speed != null && Number.isFinite(speed) ? Number((speed * 3.6).toFixed(1)) : 0;
-
-            db.ref(`liveTrack/gpsSources/${myGPSDeviceId}`).set({
-              lat: latitude,
-              lng: longitude,
-              speed: currentSpeed,
-              timestamp: Date.now()
-            });
-
-            btn.innerText = "🛑 STOP LIVE GPS (TRACKING ON)";
-            btn.style.background = "#dc2626";
-          },
-          (error) => {
-            console.error("GPS Error:", error);
-            navigator.geolocation.clearWatch(watchId);
-            watchId = null;
-            btn.innerText = "📡 START RIDER LIVE GPS";
-            btn.style.background = "#0284c7";
-            alert("GPS Error: " + error.message);
-          },
-          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-        );
-      } else {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-        // Manually stopping = "I'm done sharing". Remove my GPS entry so viewers
-        // immediately hand off to the other person's phone if it's still active.
-        db.ref(`liveTrack/gpsSources/${myGPSDeviceId}`).remove();
-        btn.innerText = "📡 START RIDER LIVE GPS";
-        btn.style.background = "#0284c7";
-      }
-    }
-
-    db.ref('liveTrack/gpsSources').on('value', (snapshot) => {
-      const sources = snapshot.val();
-      if (!sources) {
-        Object.values(riderMarkers).forEach(m => map.removeLayer(m));
-        riderMarkers = {};
-        return;
-      }
-
-      // The freshest-updated source still drives the main stats: hero marquee,
-      // distance covered, road progress line, and the main cycle marker/auto-follow.
-      let freshest = null;
-      let freshestId = null;
-      Object.entries(sources).forEach(([id, src]) => {
-        if (!src || typeof src.lat !== 'number' || typeof src.lng !== 'number') return;
-        if (!freshest || (src.timestamp || 0) > (freshest.timestamp || 0)) { freshest = src; freshestId = id; }
-      });
-      if (!freshest) return;
-
-      latestGPS = [freshest.lat, freshest.lng];
-      currentSpeed = Number(freshest.speed) || 0;
-      cycleMarker.setLatLng(latestGPS);
-
-      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "";
-      const nextSpot = routeData[currentWaypointIndex + 1] ? routeData[currentWaypointIndex + 1].name : "Finish";
-
-      updateRiderPopup(currentSpot, nextSpot);
-      updateHeroMarquee(freshest.lat, freshest.lng);
-      updateDistanceDisplay();
-      updateDynamicRoadLines();
-      updateGPSFreshness(freshest.timestamp);
-
-      if (autoFollowRider) map.panTo(latestGPS, {animate:true,duration:.35});
-
-      // Every OTHER active GPS source (e.g. your friend's phone) gets shown too,
-      // as its own marker on the map, instead of being hidden behind the main one.
-      const activeIds = Object.keys(sources).filter((id) => {
-        const s = sources[id];
-        return s && typeof s.lat === 'number' && typeof s.lng === 'number';
-      });
-
-      activeIds.forEach((id) => {
-        if (id === freshestId) return; // that one's already shown via the main cycle marker
-        const src = sources[id];
-        const pos = [src.lat, src.lng];
-        if (riderMarkers[id]) {
-          riderMarkers[id].setLatLng(pos);
-        } else {
-          const extraIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚵', iconSize: [28, 28], iconAnchor: [14, 14] });
-          riderMarkers[id] = L.marker(pos, { icon: extraIcon }).addTo(map);
-        }
-        riderMarkers[id].bindPopup(`
-          <div class="rider-popup-card">
-            <div class="rider-popup-title">🚵 ADDITIONAL GPS</div>
-            <div class="speedometer-badge">⚡ ${Number(src.speed) || 0} KM/H</div>
-          </div>
-        `);
-      });
-
-      // Clean up markers for sources that are no longer active or just became the primary
-      Object.keys(riderMarkers).forEach((id) => {
-        if (!activeIds.includes(id) || id === freshestId) {
-          map.removeLayer(riderMarkers[id]);
-          delete riderMarkers[id];
-        }
-      });
-    });
 
     setInterval(checkGPSFreshness, 5000);
 
