@@ -79,7 +79,6 @@
     .actual-time-badge{ font-size:.75rem; color:#16a34a; font-weight:700; margin-top:6px; display:block; }
     .halting-time-badge{ font-size:.7rem; color:#d97706; font-weight:700; margin-top:4px; display:block; }
 
-    /* TRAVEL DURATION OUTSIDE THE BOX */
     .transit-between-badge{
       margin: 8px 0 12px 0;
       background: #e0f2fe;
@@ -132,7 +131,6 @@
       .timeline-container{ padding:10px 8px; }
     }
 
-    /* ===== V2 POLISH & UX ===== */
     button:focus-visible, a:focus-visible { outline:3px solid rgba(2,132,199,.35); outline-offset:2px; }
     .gps-toggle-btn:hover, .action-btn:hover, .photo-toggle-btn:hover { filter:brightness(.98); }
     .gps-toggle-btn:active, .action-btn:active, .photo-toggle-btn:active { transform:translateY(1px); }
@@ -265,9 +263,10 @@
     let lastGPSAt = 0;
     let routeTotalDistanceKm = 0;
     let coveredDistanceKm = 0;
-    let waypointPathIndices = []; // NEW: Added logic array to store exact route points
+    let riderTwoMarker = null; 
 
-    let riderTwoMarker = null;
+    // Track whether rider is currently 'MOVING' or 'ARRIVED' at a stop
+    let riderStatus = 'MOVING';
 
     function toggleLiveRiderGPS() {
       const btn = document.getElementById('gps-btn');
@@ -476,9 +475,8 @@
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], {icon:cycleIcon,zIndexOffset:1000}).addTo(map);
       updateRiderPopup("Devikere", "Maratikoppa");
 
-      // NEW: Covered route is thick Green. Remaining route is THIN Green and dashed!
-      coveredPolyline = L.polyline([], {color:'#16a34a',weight:6,opacity:1}).addTo(map);
-      remainingPolyline = L.polyline([], {color:'#16a34a',weight:3,opacity:.7,dashArray:'5, 8'}).addTo(map);
+      coveredPolyline = L.polyline([], {color:'#16a34a',weight:5,opacity:.9}).addTo(map);
+      remainingPolyline = L.polyline([], {color:'#94a3b8',weight:4,opacity:.7,dashArray:'6, 8'}).addTo(map);
 
       document.getElementById('recenter-btn').addEventListener('click', () => {
         autoFollowRider = true;
@@ -501,41 +499,26 @@
         const data = await res.json();
         if (data.routes && data.routes[0]) {
           fullRoadPath = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-          
-          // NEW LOGIC: Lock path segments forward sequentially to fix "upar-niche" route jumps
-          waypointPathIndices = [];
-          let searchStartIndex = 0;
-          routeData.forEach(pt => {
-            let minD = Infinity, minI = searchStartIndex;
-            for(let i = searchStartIndex; i < fullRoadPath.length; i++) {
-              const d = calculateDistance(pt.lat, pt.lng, fullRoadPath[i][0], fullRoadPath[i][1]);
-              if (d < minD) { minD = d; minI = i; }
-            }
-            waypointPathIndices.push(minI);
-            searchStartIndex = minI;
-          });
-
           updateDynamicRoadLines();
         }
       } catch (e) {
         fullRoadPath = routeData.map(p => [p.lat, p.lng]);
-        waypointPathIndices = routeData.map((_, i) => i);
         updateDynamicRoadLines();
       }
     }
 
     function updateDynamicRoadLines() {
-      // NEW LOGIC: Base covered route ONLY on clicks to "Arrived", ignore GPS moving ahead for the lines
-      if (!fullRoadPath.length || !coveredPolyline || !remainingPolyline || waypointPathIndices.length === 0) return;
+      if (!fullRoadPath.length || !coveredPolyline || !remainingPolyline) return;
 
-      let lastArrivedIndex = 0;
-      for (let i = 0; i < routeData.length; i++) {
-        if (waypointsState[i] && waypointsState[i].arrived) {
-          lastArrivedIndex = i;
-        }
-      }
+      const target = latestGPS
+        ? {lat:latestGPS[0],lng:latestGPS[1]}
+        : routeData[Math.min(currentWaypointIndex, routeData.length - 1)];
 
-      let splitIdx = waypointPathIndices[lastArrivedIndex];
+      let splitIdx = 0, minDistance = Infinity;
+      fullRoadPath.forEach((pt, i) => {
+        const d = calculateDistance(target.lat, target.lng, pt[0], pt[1]);
+        if (d < minDistance) { minDistance = d; splitIdx = i; }
+      });
 
       coveredPolyline.setLatLngs(fullRoadPath.slice(0, splitIdx + 1));
       remainingPolyline.setLatLngs(fullRoadPath.slice(splitIdx));
@@ -565,24 +548,32 @@
       return R * c;
     }
 
+    // FIXED MARQUEE BANNER LOGIC ACCORDING TO USER REQUIREMENTS
     function updateHeroMarquee(currentLat, currentLng) {
-      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "Sirsi";
-      const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
-      const nextSpot = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
-      const nextTarget = routeData[nextIndex];
-
-      let distanceStr = "";
-      if (nextTarget && Number.isFinite(currentLat) && Number.isFinite(currentLng)) {
-        const distMeters = calculateDistance(currentLat, currentLng, nextTarget.lat, nextTarget.lng);
-        if (distMeters >= 1000) {
-          distanceStr = ` | Distance to next stop (${nextSpot}): ${(distMeters / 1000).toFixed(2)} KM`;
-        } else {
-          distanceStr = ` | Distance to next stop (${nextSpot}): ${Math.round(distMeters)} m`;
-        }
-      }
-
       const marqueeEl = document.getElementById('live-hero-status');
-      marqueeEl.innerText = `🔥 RIDER CHINMAY IS ON THE WAY! Current Location: ${currentSpot} ➔ Heading to: ${nextSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
+      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "Sirsi";
+
+      if (riderStatus === 'ARRIVED') {
+        // Requirement 1: When Arrived button is clicked
+        marqueeEl.innerText = `🛑 RIDER CHINMAY ARRIVED AT ${currentSpot.toUpperCase()}! Ride will rebegin soon...`;
+      } else {
+        // Requirement 2: When Left button is clicked (On the way status)
+        const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
+        const nextSpot = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
+        const nextTarget = routeData[nextIndex];
+
+        let distanceStr = "";
+        if (nextTarget && Number.isFinite(currentLat) && Number.isFinite(currentLng)) {
+          const distMeters = calculateDistance(currentLat, currentLng, nextTarget.lat, nextTarget.lng);
+          if (distMeters >= 1000) {
+            distanceStr = ` | Distance to next stop (${nextSpot}): ${(distMeters / 1000).toFixed(2)} KM`;
+          } else {
+            distanceStr = ` | Distance to next stop (${nextSpot}): ${Math.round(distMeters)} m`;
+          }
+        }
+
+        marqueeEl.innerText = `🔥 RIDER CHINMAY IS ON THE WAY! Current Location: ${currentSpot} ➔ Heading to: ${nextSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
+      }
     }
 
     function updateScheduleStatusDisplay() {
@@ -805,6 +796,7 @@
       db.ref(`liveTrack/waypoints/${stopIndex}/photos`).set(photos);
     }
 
+    // UPDATED ADMIN ACTION TO MANAGE RIDER STATUS AND SYNC WITH FIREBASE
     function handleAdminAction(index, actionType) {
       if (!isAdmin) return;
       
@@ -820,9 +812,11 @@
       if (actionType === 'arrive') {
         if (currentState.arrived) return;
         currentState.arrived = timeString;
+        riderStatus = 'ARRIVED'; // Update local status
       } else if (actionType === 'left') {
         if (!currentState.arrived || currentState.left) return;
         currentState.left = timeString;
+        riderStatus = 'MOVING'; // Update local status
       }
 
       const nextIndex = actionType === 'left'
@@ -832,31 +826,29 @@
       db.ref('liveTrack').update({
         index: nextIndex,
         completed: actionType === 'left' && index === routeData.length - 1,
+        riderStatus: riderStatus, // Save status to firebase so viewers sync too
         waypoints: { ...waypointsState, [index]: currentState }
       }).then(() => {
         showToast(actionType === 'arrive' ? `Arrived at ${routeData[index].name}` : `Left ${routeData[index].name}`);
+        if(latestGPS) updateHeroMarquee(latestGPS[0], latestGPS[1]);
       }).catch(err => {
         console.error(err);
         showToast('Could not update route state.');
       });
     }
 
+    // SYNC RIDER STATUS FROM FIREBASE SO ALL VIEWERS SEE IT TOO
     db.ref('liveTrack').on('value', (snapshot) => {
       const data = snapshot.val();
       if (data) {
         currentWaypointIndex = Math.max(0, Math.min(Number(data.index) || 0, routeData.length - 1));
         waypointsState = data.waypoints || {};
-        
-        // BONUS FIX: Jo jagah tum arrived par click karoge, map me us jagah ka marker blue se green ho jayega
-        routeData.forEach((pt, idx) => {
-          if (mapMarkers[idx]) {
-            const isArrived = waypointsState[idx] && waypointsState[idx].arrived;
-            mapMarkers[idx].setIcon(createPinIcon(isArrived ? '#16a34a' : '#0284c7'));
-          }
-        });
-
+        if (data.riderStatus) {
+          riderStatus = data.riderStatus;
+        }
         renderTimeline();
         updateDynamicRoadLines();
+        if(latestGPS) updateHeroMarquee(latestGPS[0], latestGPS[1]);
       }
     });
 
