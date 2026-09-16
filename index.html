@@ -342,27 +342,21 @@
       const sources = snapshot.val() || {};
       const r1 = sources.rider1;
       if (r1 && typeof r1.lat === 'number' && typeof r1.lng === 'number') {
-        // Only override latestGPS if live GPS is actively broadcasting fresh data, 
-        // otherwise default to waypoint location for map marker if manual updates are ahead
         latestGPS = [r1.lat, r1.lng];
         currentSpeed = Number(r1.speed) || 0;
         
-        // If live GPS is active, we can update marker position from GPS or keep it synced with current waypoint
-        // Let's use waypoint coordinate as primary pin position when manual check-ins are made, or latestGPS if auto-following
-        const currentPt = routeData[currentWaypointIndex];
-        const markerPos = latestGPS || [currentPt.lat, currentPt.lng];
-        cycleMarker.setLatLng(markerPos);
+        // Cycle marker strictly follows real live GPS feed
+        cycleMarker.setLatLng(latestGPS);
 
         const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "";
         const nextSpot = routeData[currentWaypointIndex + 1] ? routeData[currentWaypointIndex + 1].name : "Finish";
 
         updateRiderPopup(currentSpot, nextSpot);
-        updateHeroMarquee(markerPos[0], markerPos[1]);
+        updateHeroMarquee(latestGPS[0], latestGPS[1]);
         updateDistanceDisplay();
-        updateDynamicRoadLines();
         updateGPSFreshness(r1.timestamp);
 
-        if (autoFollowRider) map.panTo(markerPos, {animate:true,duration:.35});
+        if (autoFollowRider) map.panTo(latestGPS, {animate:true,duration:.35});
       }
 
       const r2 = sources.rider2;
@@ -419,7 +413,6 @@
       for (let i = 1; i <= targetIndex; i++) {
         travelled += calculateDistance(routeData[i-1].lat, routeData[i-1].lng, routeData[i].lat, routeData[i].lng);
       }
-      // Include fraction to current waypoint/GPS if available
       const currentPt = routeData[targetIndex];
       const targetCoord = latestGPS ? {lat: latestGPS[0], lng: latestGPS[1]} : currentPt;
       if (targetIndex < routeData.length - 1 && latestGPS) {
@@ -503,8 +496,6 @@
     function updateDynamicRoadLines() {
       if (!fullRoadPath.length || !coveredPolyline || !remainingPolyline) return;
 
-      // FIX: Anchor green line progress directly to currentWaypointIndex coordinates 
-      // so manual admin clicks instantly update the map line without waiting for GPS!
       const currentPt = routeData[Math.min(currentWaypointIndex, routeData.length - 1)];
       let targetLat = currentPt.lat;
       let targetLng = currentPt.lng;
@@ -838,11 +829,18 @@
           riderStatus = data.riderStatus;
         }
         renderTimeline();
-        updateDynamicRoadLines();
+        updateDynamicRoadLines(); // Updates green progress line instantly on admin click
         updateDistanceDisplay();
 
+        // Dedicated live location logic: 
+        // Only place marker at the current waypoint if live GPS feed has never been received.
+        // Once live GPS is active, manual admin clicks will NOT move the cycle emoji!
+        if (!latestGPS && cycleMarker) {
+          const currentPt = routeData[currentWaypointIndex];
+          cycleMarker.setLatLng([currentPt.lat, currentPt.lng]);
+        }
+
         const currentPt = routeData[currentWaypointIndex];
-        if (cycleMarker) cycleMarker.setLatLng([currentPt.lat, currentPt.lng]);
         updateHeroMarquee(currentPt.lat, currentPt.lng);
       }
     });
