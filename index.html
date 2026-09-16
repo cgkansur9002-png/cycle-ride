@@ -248,6 +248,25 @@
       { id: 19, name: "Raghavendra Circle", time: "18:05", lat: 14.623083, lng: 74.827528 }
     ];
 
+    // Extra "via" points that don't appear as stops in the timeline — they exist only to
+    // nudge the OSRM road router onto the exact streets you want between certain stops.
+    // Key = index of the stop the segment starts FROM (in routeData above).
+    const routeViaPoints = {
+      0: [ // Devikere -> Maratikoppa: via Kaumudi Nursing Home, then Navachetana Hospital road
+        { lat: 14.6214606, lng: 74.8330012 }, // Kaumudi Nursing Home
+        { lat: 14.6220043, lng: 74.8330508 }  // Navachetana Hospital
+      ],
+      1: [ // Maratikoppa -> Bapuji Nagar: via Rama Hagde Clinic, Shrigandha Hospital, Ashwini Circle
+        { lat: 14.6262999, lng: 74.8343745 }, // Rama Hagde Clinic
+        { lat: 14.6236552, lng: 74.8333956 }, // Shrigandha Hospital
+        { lat: 14.6230950, lng: 74.8359535 }  // Kittur Rani Chennamma Circle (Ashwini Circle)
+      ],
+      3: [ // Chipgi -> Vivekananda Nagar: stay on the Sirsi-Hubli Highway the whole way
+        { lat: 14.6410348, lng: 74.8604155 }, // Sirsi-Hubli Rd, near Chipgi
+        { lat: 14.6310313, lng: 74.8518909 }  // Sirsi-Hubli Rd, near Vivekananda Nagar
+      ]
+    };
+
     let currentWaypointIndex = 0;
     let waypointsState = {}; 
     let map, cycleMarker;
@@ -263,6 +282,23 @@
     let lastGPSAt = 0;
     let routeTotalDistanceKm = 0;
     let coveredDistanceKm = 0;
+
+    // Each phone that shares GPS (you, your friend, anyone else with the admin link)
+    // gets its own persistent ID, stored on that phone only. This means two people
+    // can broadcast location at the same time without overwriting each other's data.
+    function getDeviceId() {
+      try {
+        let id = localStorage.getItem('sirsiRiderDeviceId');
+        if (!id) {
+          id = 'rider_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+          localStorage.setItem('sirsiRiderDeviceId', id);
+        }
+        return id;
+      } catch (e) {
+        return 'rider_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      }
+    }
+    const myGPSDeviceId = getDeviceId();
 
     function createPinIcon(color) {
       const svgPin = `<svg width="22" height="30" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z" fill="${color}"/></svg>`;
@@ -359,7 +395,17 @@
     }
 
     async function fetchOSRMRealRoads() {
-      const coordString = routeData.map(p => `${p.lng},${p.lat}`).join(';');
+      // Build the full ordered point list: each stop, plus any via points right after it,
+      // so OSRM is forced through the specific roads/landmarks instead of picking its own path.
+      const orderedPoints = [];
+      routeData.forEach((p, idx) => {
+        orderedPoints.push({ lat: p.lat, lng: p.lng });
+        if (routeViaPoints[idx]) {
+          orderedPoints.push(...routeViaPoints[idx]);
+        }
+      });
+
+      const coordString = orderedPoints.map(p => `${p.lng},${p.lat}`).join(';');
       const url = `https://router.project-osrm.org/route/v1/biking/${coordString}?overview=full&geometries=geojson`;
 
       try {
@@ -517,7 +563,7 @@
             const { latitude, longitude, speed } = position.coords;
             currentSpeed = speed != null && Number.isFinite(speed) ? Number((speed * 3.6).toFixed(1)) : 0;
 
-            db.ref('liveTrack/currentGPS').set({
+            db.ref(`liveTrack/gpsSources/${myGPSDeviceId}`).set({
               lat: latitude,
               lng: longitude,
               speed: currentSpeed,
@@ -540,27 +586,41 @@
       } else {
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
+        // Manually stopping = "I'm done sharing". Remove my GPS entry so viewers
+        // immediately hand off to the other person's phone if it's still active.
+        db.ref(`liveTrack/gpsSources/${myGPSDeviceId}`).remove();
         btn.innerText = "📡 START RIDER LIVE GPS";
         btn.style.background = "#0284c7";
       }
     }
 
-    db.ref('liveTrack/currentGPS').on('value', (snapshot) => {
-      const gps = snapshot.val();
-      if (!gps || typeof gps.lat !== 'number' || typeof gps.lng !== 'number') return;
+    db.ref('liveTrack/gpsSources').on('value', (snapshot) => {
+      const sources = snapshot.val();
+      if (!sources) return;
 
-      latestGPS = [gps.lat, gps.lng];
-      currentSpeed = Number(gps.speed) || 0;
+      // Multiple phones can be broadcasting at once (you + your friend). Always show
+      // whichever one sent the most recent update — so if your phone stops (turned off,
+      // no signal, etc.) but your friend's phone is still sharing, the map automatically
+      // switches to their location within seconds, with zero manual action needed.
+      let freshest = null;
+      Object.values(sources).forEach((src) => {
+        if (!src || typeof src.lat !== 'number' || typeof src.lng !== 'number') return;
+        if (!freshest || (src.timestamp || 0) > (freshest.timestamp || 0)) freshest = src;
+      });
+      if (!freshest) return;
+
+      latestGPS = [freshest.lat, freshest.lng];
+      currentSpeed = Number(freshest.speed) || 0;
       cycleMarker.setLatLng(latestGPS);
 
       const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "";
       const nextSpot = routeData[currentWaypointIndex + 1] ? routeData[currentWaypointIndex + 1].name : "Finish";
 
       updateRiderPopup(currentSpot, nextSpot);
-      updateHeroMarquee(gps.lat, gps.lng);
+      updateHeroMarquee(freshest.lat, freshest.lng);
       updateDistanceDisplay();
       updateDynamicRoadLines();
-      updateGPSFreshness(gps.timestamp);
+      updateGPSFreshness(freshest.timestamp);
 
       if (autoFollowRider) map.panTo(latestGPS, {animate:true,duration:.35});
     });
@@ -645,8 +705,13 @@
               </div>
             ` : ''}
           </div>
-          ${travelDurationOutsideHtml}
         `;
+        // BUGFIX: this badge shows travel time from the PREVIOUS stop to THIS stop,
+        // so it must be inserted before this item (between prev card and this card) —
+        // appending it after this item pushed it down to sit between this card and the next one.
+        if (travelDurationOutsideHtml) {
+          container.insertAdjacentHTML('beforeend', travelDurationOutsideHtml);
+        }
         container.appendChild(item);
       });
 
@@ -761,10 +826,6 @@
         waypointsState = data.waypoints || {};
         renderTimeline();
         updateDynamicRoadLines();
-        
-        if (data.currentGPS) {
-          updateHeroMarquee(data.currentGPS.lat, data.currentGPS.lng);
-        }
       }
     });
 
