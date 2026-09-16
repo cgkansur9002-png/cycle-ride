@@ -264,31 +264,22 @@
     let routeTotalDistanceKm = 0;
     let coveredDistanceKm = 0;
     let riderTwoMarker = null; 
-
-    // Track whether rider is currently 'MOVING' or 'ARRIVED' at a stop
     let riderStatus = 'MOVING';
 
     function toggleLiveRiderGPS() {
       const btn = document.getElementById('gps-btn');
-
       if (!navigator.geolocation) {
         alert("GPS permission not supported in your browser.");
         return;
       }
-
       if (watchId === null) {
         watchId = navigator.geolocation.watchPosition(
           (position) => {
             const { latitude, longitude, speed } = position.coords;
             const spd = speed != null && Number.isFinite(speed) ? Number((speed * 3.6).toFixed(1)) : 0;
-
             db.ref('liveTrack/gpsSources/rider1').set({
-              lat: latitude,
-              lng: longitude,
-              speed: spd,
-              timestamp: Date.now()
+              lat: latitude, lng: longitude, speed: spd, timestamp: Date.now()
             });
-
             btn.innerText = "🛑 STOP LIVE GPS (TRACKING ON)";
             btn.style.background = "#dc2626";
           },
@@ -313,25 +304,18 @@
 
     function toggleLiveRiderGPS2() {
       const btn = document.getElementById('gps-btn-2');
-
       if (!navigator.geolocation) {
         alert("GPS permission not supported in your browser.");
         return;
       }
-
       if (watchId2 === null) {
         watchId2 = navigator.geolocation.watchPosition(
           (position) => {
             const { latitude, longitude, speed } = position.coords;
             const spd = speed != null && Number.isFinite(speed) ? Number((speed * 3.6).toFixed(1)) : 0;
-
             db.ref('liveTrack/gpsSources/rider2').set({
-              lat: latitude,
-              lng: longitude,
-              speed: spd,
-              timestamp: Date.now()
+              lat: latitude, lng: longitude, speed: spd, timestamp: Date.now()
             });
-
             btn.innerText = "🛑 STOP RIDER 2 GPS (TRACKING ON)";
             btn.style.background = "#dc2626";
           },
@@ -356,23 +340,29 @@
 
     db.ref('liveTrack/gpsSources').on('value', (snapshot) => {
       const sources = snapshot.val() || {};
-
       const r1 = sources.rider1;
       if (r1 && typeof r1.lat === 'number' && typeof r1.lng === 'number') {
+        // Only override latestGPS if live GPS is actively broadcasting fresh data, 
+        // otherwise default to waypoint location for map marker if manual updates are ahead
         latestGPS = [r1.lat, r1.lng];
         currentSpeed = Number(r1.speed) || 0;
-        cycleMarker.setLatLng(latestGPS);
+        
+        // If live GPS is active, we can update marker position from GPS or keep it synced with current waypoint
+        // Let's use waypoint coordinate as primary pin position when manual check-ins are made, or latestGPS if auto-following
+        const currentPt = routeData[currentWaypointIndex];
+        const markerPos = latestGPS || [currentPt.lat, currentPt.lng];
+        cycleMarker.setLatLng(markerPos);
 
         const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "";
         const nextSpot = routeData[currentWaypointIndex + 1] ? routeData[currentWaypointIndex + 1].name : "Finish";
 
         updateRiderPopup(currentSpot, nextSpot);
-        updateHeroMarquee(r1.lat, r1.lng);
+        updateHeroMarquee(markerPos[0], markerPos[1]);
         updateDistanceDisplay();
         updateDynamicRoadLines();
         updateGPSFreshness(r1.timestamp);
 
-        if (autoFollowRider) map.panTo(latestGPS, {animate:true,duration:.35});
+        if (autoFollowRider) map.panTo(markerPos, {animate:true,duration:.35});
       }
 
       const r2 = sources.rider2;
@@ -422,15 +412,18 @@
     }
 
     function updateDistanceDisplay() {
-      if (!latestGPS || !routeTotalDistanceKm) return;
+      if (!routeTotalDistanceKm) return;
       let travelled = 0;
       const targetIndex = Math.min(currentWaypointIndex, routeData.length - 1);
 
       for (let i = 1; i <= targetIndex; i++) {
         travelled += calculateDistance(routeData[i-1].lat, routeData[i-1].lng, routeData[i].lat, routeData[i].lng);
       }
-      if (targetIndex < routeData.length - 1) {
-        travelled += calculateDistance(routeData[targetIndex].lat, routeData[targetIndex].lng, latestGPS[0], latestGPS[1]);
+      // Include fraction to current waypoint/GPS if available
+      const currentPt = routeData[targetIndex];
+      const targetCoord = latestGPS ? {lat: latestGPS[0], lng: latestGPS[1]} : currentPt;
+      if (targetIndex < routeData.length - 1 && latestGPS) {
+        travelled += calculateDistance(routeData[targetIndex].lat, routeData[targetIndex].lng, targetCoord.lat, targetCoord.lng);
       }
 
       coveredDistanceKm = Math.min(travelled / 1000, routeTotalDistanceKm);
@@ -510,13 +503,15 @@
     function updateDynamicRoadLines() {
       if (!fullRoadPath.length || !coveredPolyline || !remainingPolyline) return;
 
-      const target = latestGPS
-        ? {lat:latestGPS[0],lng:latestGPS[1]}
-        : routeData[Math.min(currentWaypointIndex, routeData.length - 1)];
+      // FIX: Anchor green line progress directly to currentWaypointIndex coordinates 
+      // so manual admin clicks instantly update the map line without waiting for GPS!
+      const currentPt = routeData[Math.min(currentWaypointIndex, routeData.length - 1)];
+      let targetLat = currentPt.lat;
+      let targetLng = currentPt.lng;
 
       let splitIdx = 0, minDistance = Infinity;
       fullRoadPath.forEach((pt, i) => {
-        const d = calculateDistance(target.lat, target.lng, pt[0], pt[1]);
+        const d = calculateDistance(targetLat, targetLng, pt[0], pt[1]);
         if (d < minDistance) { minDistance = d; splitIdx = i; }
       });
 
@@ -548,16 +543,13 @@
       return R * c;
     }
 
-    // FIXED MARQUEE BANNER LOGIC ACCORDING TO USER REQUIREMENTS
     function updateHeroMarquee(currentLat, currentLng) {
       const marqueeEl = document.getElementById('live-hero-status');
       const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "Sirsi";
 
       if (riderStatus === 'ARRIVED') {
-        // Requirement 1: When Arrived button is clicked
         marqueeEl.innerText = `🛑 RIDER CHINMAY ARRIVED AT ${currentSpot.toUpperCase()}! Ride will rebegin soon...`;
       } else {
-        // Requirement 2: When Left button is clicked (On the way status)
         const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
         const nextSpot = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
         const nextTarget = routeData[nextIndex];
@@ -796,7 +788,6 @@
       db.ref(`liveTrack/waypoints/${stopIndex}/photos`).set(photos);
     }
 
-    // UPDATED ADMIN ACTION TO MANAGE RIDER STATUS AND SYNC WITH FIREBASE
     function handleAdminAction(index, actionType) {
       if (!isAdmin) return;
       
@@ -812,11 +803,11 @@
       if (actionType === 'arrive') {
         if (currentState.arrived) return;
         currentState.arrived = timeString;
-        riderStatus = 'ARRIVED'; // Update local status
+        riderStatus = 'ARRIVED';
       } else if (actionType === 'left') {
         if (!currentState.arrived || currentState.left) return;
         currentState.left = timeString;
-        riderStatus = 'MOVING'; // Update local status
+        riderStatus = 'MOVING';
       }
 
       const nextIndex = actionType === 'left'
@@ -826,18 +817,18 @@
       db.ref('liveTrack').update({
         index: nextIndex,
         completed: actionType === 'left' && index === routeData.length - 1,
-        riderStatus: riderStatus, // Save status to firebase so viewers sync too
+        riderStatus: riderStatus,
         waypoints: { ...waypointsState, [index]: currentState }
       }).then(() => {
         showToast(actionType === 'arrive' ? `Arrived at ${routeData[index].name}` : `Left ${routeData[index].name}`);
-        if(latestGPS) updateHeroMarquee(latestGPS[0], latestGPS[1]);
+        const currentPt = routeData[nextIndex];
+        updateHeroMarquee(currentPt.lat, currentPt.lng);
       }).catch(err => {
         console.error(err);
         showToast('Could not update route state.');
       });
     }
 
-    // SYNC RIDER STATUS FROM FIREBASE SO ALL VIEWERS SEE IT TOO
     db.ref('liveTrack').on('value', (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -848,7 +839,11 @@
         }
         renderTimeline();
         updateDynamicRoadLines();
-        if(latestGPS) updateHeroMarquee(latestGPS[0], latestGPS[1]);
+        updateDistanceDisplay();
+
+        const currentPt = routeData[currentWaypointIndex];
+        if (cycleMarker) cycleMarker.setLatLng([currentPt.lat, currentPt.lng]);
+        updateHeroMarquee(currentPt.lat, currentPt.lng);
       }
     });
 
