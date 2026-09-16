@@ -79,8 +79,9 @@
     .actual-time-badge{ font-size:.75rem; color:#16a34a; font-weight:700; margin-top:6px; display:block; }
     .halting-time-badge{ font-size:.7rem; color:#d97706; font-weight:700; margin-top:4px; display:block; }
 
+    /* TRAVEL DURATION OUTSIDE THE BOX */
     .transit-between-badge{
-      margin: 4px 0 10px 0;
+      margin: 8px 0 12px 0;
       background: #e0f2fe;
       border: 1px dashed #0284c7;
       color: #0369a1;
@@ -130,6 +131,24 @@
       .sidebar{ width:100%; flex:1; border-right:none; border-top:2px solid var(--accent-blue); }
       .timeline-container{ padding:10px 8px; }
     }
+
+    /* ===== V2 POLISH & UX ===== */
+    button:focus-visible, a:focus-visible { outline:3px solid rgba(2,132,199,.35); outline-offset:2px; }
+    .gps-toggle-btn:hover, .action-btn:hover, .photo-toggle-btn:hover { filter:brightness(.98); }
+    .gps-toggle-btn:active, .action-btn:active, .photo-toggle-btn:active { transform:translateY(1px); }
+    .map-overlay{position:absolute;top:12px;right:12px;z-index:500;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none}
+    .map-control-card,.map-control-btn{pointer-events:auto;background:rgba(255,255,255,.94);border:1px solid #cbd5e1;border-radius:9px;padding:8px 10px;box-shadow:0 4px 16px rgba(15,23,42,.12);backdrop-filter:blur(8px);font-size:.7rem;font-weight:800}
+    .map-control-btn{cursor:pointer;color:#0f172a}
+    .live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#16a34a;margin-right:5px;vertical-align:middle;box-shadow:0 0 0 0 rgba(22,163,74,.45);animation:livePulse 1.8s infinite}
+    @keyframes livePulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.45)}70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+    .route-progress{margin-top:8px;height:6px;border-radius:999px;background:#e2e8f0;overflow:hidden}
+    .route-progress>div{height:100%;width:0%;border-radius:inherit;background:#0284c7;transition:width .4s ease}
+    .toast{position:fixed;left:50%;bottom:18px;transform:translate(-50%,20px);z-index:2000;background:#0f172a;color:#fff;padding:10px 14px;border-radius:10px;font-size:.78rem;font-weight:700;box-shadow:0 8px 24px rgba(15,23,42,.25);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;max-width:min(90vw,420px);text-align:center}
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+    .last-update{font-size:.65rem;color:#64748b;margin-top:5px}
+    .offline-badge{display:none;margin-top:6px;padding:5px 8px;border-radius:7px;background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;font-size:.68rem;font-weight:800}
+    .offline-badge.show{display:block}
+    @media(max-width:768px){.map-overlay{top:8px;right:8px}.control-panel{padding:9px}.stat-card{padding:9px}.stat-value{font-size:.82rem}.action-btn{padding:11px}}
   </style>
 </head>
 <body>
@@ -153,6 +172,10 @@
   <div class="dashboard-container">
     <div class="map-container">
       <div id="map"></div>
+      <div class="map-overlay">
+        <div class="map-control-card"><span class="live-dot"></span><span id="map-live-label">LIVE TRACKING</span></div>
+        <button id="recenter-btn" class="map-control-btn" type="button">🎯 Re-center Rider</button>
+      </div>
     </div>
 
     <div class="sidebar">
@@ -160,6 +183,7 @@
         <div id="admin-gps-panel" style="display:none;">
           <button id="gps-btn" class="gps-toggle-btn" onclick="toggleLiveRiderGPS()">📡 START RIDER LIVE GPS</button>
         </div>
+        <div class="route-progress" aria-label="Route progress"><div></div></div>
         <div class="metrics-grid">
           <div class="stat-card" id="status-card">
             <div class="stat-label">Schedule Status</div>
@@ -167,7 +191,7 @@
           </div>
           <div class="stat-card green">
             <div class="stat-label">Covered Distance</div>
-            <div class="stat-value" id="distance-text">0.0 KM</div>
+            <div class="stat-value" id="distance-text">0.0 KM</div><div class="last-update" id="last-update">Waiting for GPS…</div><div class="offline-badge" id="offline-badge">⚠️ GPS feed is stale</div>
           </div>
         </div>
       </div>
@@ -196,6 +220,11 @@
     const firebaseConfig = { databaseURL: "https://ksrtc-cycle-tracker-default-rtdb.firebaseio.com" };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+    db.ref('.info/connected').on('value', snap => {
+      if (!snap.val()) document.getElementById('map-live-label').textContent = 'RECONNECTING…';
+      else if (!document.getElementById('offline-badge').classList.contains('show'))
+        document.getElementById('map-live-label').textContent = 'LIVE TRACKING';
+    });
 
     const routeData = [
       { id: 1, name: "Devikere", time: "16:00", lat: 14.619805, lng: 74.832288 },
@@ -228,35 +257,105 @@
     let coveredPolyline, remainingPolyline;
     let fullRoadPath = [];
     let currentSpeed = 0;
+    let latestGPS = null;
+    let autoFollowRider = true;
+    let toastTimer = null;
+    let lastGPSAt = 0;
+    let routeTotalDistanceKm = 0;
+    let coveredDistanceKm = 0;
 
     function createPinIcon(color) {
       const svgPin = `<svg width="22" height="30" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z" fill="${color}"/></svg>`;
       return L.divIcon({ className: 'custom-pin-icon', html: svgPin, iconSize: [22, 30], iconAnchor: [11, 30] });
     }
 
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+
+    function showToast(message) {
+      const el = document.getElementById('toast');
+      el.textContent = message;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+    }
+
+    function calculateRouteTotalDistance() {
+      let total = 0;
+      for (let i = 1; i < routeData.length; i++) {
+        total += calculateDistance(routeData[i-1].lat, routeData[i-1].lng, routeData[i].lat, routeData[i].lng);
+      }
+      routeTotalDistanceKm = total / 1000;
+    }
+
+    function updateDistanceDisplay() {
+      if (!latestGPS || !routeTotalDistanceKm) return;
+      let travelled = 0;
+      const targetIndex = Math.min(currentWaypointIndex, routeData.length - 1);
+
+      for (let i = 1; i <= targetIndex; i++) {
+        travelled += calculateDistance(routeData[i-1].lat, routeData[i-1].lng, routeData[i].lat, routeData[i].lng);
+      }
+      if (targetIndex < routeData.length - 1) {
+        travelled += calculateDistance(routeData[targetIndex].lat, routeData[targetIndex].lng, latestGPS[0], latestGPS[1]);
+      }
+
+      coveredDistanceKm = Math.min(travelled / 1000, routeTotalDistanceKm);
+      document.getElementById('distance-text').textContent = `${coveredDistanceKm.toFixed(1)} KM`;
+      const bar = document.querySelector('.route-progress > div');
+      if (bar) bar.style.width = `${Math.min(100, coveredDistanceKm / routeTotalDistanceKm * 100).toFixed(1)}%`;
+    }
+
+    function updateGPSFreshness(timestamp) {
+      lastGPSAt = Number(timestamp) || Date.now();
+      document.getElementById('last-update').textContent =
+        `GPS updated ${new Date(lastGPSAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}`;
+      document.getElementById('offline-badge').classList.remove('show');
+      document.getElementById('map-live-label').textContent = 'LIVE TRACKING';
+    }
+
+    function checkGPSFreshness() {
+      if (!lastGPSAt) return;
+      const stale = Date.now() - lastGPSAt > 30000;
+      document.getElementById('offline-badge').classList.toggle('show', stale);
+      document.getElementById('map-live-label').textContent = stale ? 'GPS FEED STALE' : 'LIVE TRACKING';
+    }
+
     async function initMap() {
       map = L.map('map', { maxZoom: 19 }).setView([routeData[0].lat, routeData[0].lng], 14);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
 
       routeData.forEach((pt, index) => {
         const marker = L.marker([pt.lat, pt.lng], { icon: createPinIcon('#0284c7') }).addTo(map);
         marker.bindPopup(`
-          <div style="font-family:Inter,sans-serif; text-align:center;">
-            <b style="font-size:0.95rem; color:#0284c7;">📍 ${index + 1}. ${pt.name}</b><br/>
-            <span style="font-size:0.8rem; color:#475569;">Scheduled Arrival: <b>${pt.time}</b></span>
+          <div style="font-family:Inter,sans-serif;text-align:center;">
+            <b style="font-size:.95rem;color:#0284c7;">📍 ${index + 1}. ${escapeHtml(pt.name)}</b><br/>
+            <span style="font-size:.8rem;color:#475569;">Scheduled Arrival: <b>${pt.time}</b></span>
           </div>
         `);
         mapMarkers.push(marker);
       });
 
-      const cycleIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚴‍♂️', iconSize: [32, 32], iconAnchor: [16, 16] });
-      cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: cycleIcon }).addTo(map);
+      const cycleIcon = L.divIcon({className:'cycle-marker-icon',html:'🚴‍♂️',iconSize:[32,32],iconAnchor:[16,16]});
+      cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], {icon:cycleIcon,zIndexOffset:1000}).addTo(map);
       updateRiderPopup("Devikere", "Maratikoppa");
 
-      coveredPolyline = L.polyline([], { color: '#16a34a', weight: 5, opacity: 0.9 }).addTo(map);
-      remainingPolyline = L.polyline([], { color: '#94a3b8', weight: 4, opacity: 0.7, dashArray: '6, 8' }).addTo(map);
+      coveredPolyline = L.polyline([], {color:'#16a34a',weight:5,opacity:.9}).addTo(map);
+      remainingPolyline = L.polyline([], {color:'#94a3b8',weight:4,opacity:.7,dashArray:'6, 8'}).addTo(map);
+
+      document.getElementById('recenter-btn').addEventListener('click', () => {
+        autoFollowRider = true;
+        const pos = latestGPS || [routeData[currentWaypointIndex].lat, routeData[currentWaypointIndex].lng];
+        map.setView(pos, Math.max(map.getZoom(), 16), {animate:true});
+      });
+      map.on('dragstart', () => { autoFollowRider = false; });
 
       await fetchOSRMRealRoads();
+      calculateRouteTotalDistance();
+      updateDistanceDisplay();
     }
 
     async function fetchOSRMRealRoads() {
@@ -277,22 +376,20 @@
     }
 
     function updateDynamicRoadLines() {
-      if (!fullRoadPath.length) return;
-      const targetIndex = Math.min(currentWaypointIndex, routeData.length - 1);
-      const currentDest = routeData[targetIndex];
+      if (!fullRoadPath.length || !coveredPolyline || !remainingPolyline) return;
 
-      let splitIdx = 0;
-      let minDistance = Infinity;
+      const target = latestGPS
+        ? {lat:latestGPS[0],lng:latestGPS[1]}
+        : routeData[Math.min(currentWaypointIndex, routeData.length - 1)];
+
+      let splitIdx = 0, minDistance = Infinity;
       fullRoadPath.forEach((pt, i) => {
-        const d = Math.hypot(pt[0] - currentDest.lat, pt[1] - currentDest.lng);
+        const d = calculateDistance(target.lat, target.lng, pt[0], pt[1]);
         if (d < minDistance) { minDistance = d; splitIdx = i; }
       });
 
-      const covered = fullRoadPath.slice(0, splitIdx + 1);
-      const remaining = fullRoadPath.slice(splitIdx);
-
-      coveredPolyline.setLatLngs(covered);
-      remainingPolyline.setLatLngs(remaining);
+      coveredPolyline.setLatLngs(fullRoadPath.slice(0, splitIdx + 1));
+      remainingPolyline.setLatLngs(fullRoadPath.slice(splitIdx));
     }
 
     function updateRiderPopup(fromLoc, toLoc) {
@@ -320,36 +417,23 @@
     }
 
     function updateHeroMarquee(currentLat, currentLng) {
-      const activeState = waypointsState[currentWaypointIndex] || {};
-      const currentSpotName = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "Sirsi";
+      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "Sirsi";
       const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
-      const nextSpotName = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
+      const nextSpot = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
       const nextTarget = routeData[nextIndex];
 
       let distanceStr = "";
-      if (nextTarget && currentLat && currentLng) {
+      if (nextTarget && Number.isFinite(currentLat) && Number.isFinite(currentLng)) {
         const distMeters = calculateDistance(currentLat, currentLng, nextTarget.lat, nextTarget.lng);
         if (distMeters >= 1000) {
-          distanceStr = ` | Distance to next stop (${nextSpotName}): ${(distMeters / 1000).toFixed(2)} KM`;
+          distanceStr = ` | Distance to next stop (${nextSpot}): ${(distMeters / 1000).toFixed(2)} KM`;
         } else {
-          distanceStr = ` | Distance to next stop (${nextSpotName}): ${Math.round(distMeters)} m`;
+          distanceStr = ` | Distance to next stop (${nextSpot}): ${Math.round(distMeters)} m`;
         }
       }
 
-      let statusMsg = "";
-      // Check if user clicked left on the current or previous stop
-      let previousActiveState = waypointsState[currentWaypointIndex - 1] || {};
-      if (activeState.left && currentWaypointIndex > 0) {
-        const prevSpotName = routeData[currentWaypointIndex - 1] ? routeData[currentWaypointIndex - 1].name : "";
-        statusMsg = `🚀 LEFT: ${prevSpotName} ➔ ${currentSpotName}`;
-      } else if (activeState.arrived) {
-        statusMsg = `📍 ARRIVED AT ${currentSpotName}`;
-      } else {
-        statusMsg = `🔥 ON THE WAY TO ${currentSpotName}`;
-      }
-
       const marqueeEl = document.getElementById('live-hero-status');
-      marqueeEl.innerText = `${statusMsg}${distanceStr} | Speed: ${currentSpeed} KM/H`;
+      marqueeEl.innerText = `🔥 RIDER CHINMAY IS ON THE WAY! Current Location: ${currentSpot} ➔ Heading to: ${nextSpot}${distanceStr} | Speed: ${currentSpeed} KM/H`;
     }
 
     function updateScheduleStatusDisplay() {
@@ -431,7 +515,7 @@
         watchId = navigator.geolocation.watchPosition(
           (position) => {
             const { latitude, longitude, speed } = position.coords;
-            currentSpeed = speed ? (speed * 3.6).toFixed(1) : 0;
+            currentSpeed = speed != null && Number.isFinite(speed) ? Number((speed * 3.6).toFixed(1)) : 0;
 
             db.ref('liveTrack/currentGPS').set({
               lat: latitude,
@@ -444,6 +528,11 @@
             btn.style.background = "#dc2626";
           },
           (error) => {
+            console.error("GPS Error:", error);
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+            btn.innerText = "📡 START RIDER LIVE GPS";
+            btn.style.background = "#0284c7";
             alert("GPS Error: " + error.message);
           },
           { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
@@ -458,19 +547,25 @@
 
     db.ref('liveTrack/currentGPS').on('value', (snapshot) => {
       const gps = snapshot.val();
-      if (gps && gps.lat && gps.lng) {
-        const livePos = [gps.lat, gps.lng];
-        currentSpeed = gps.speed || 0;
-        cycleMarker.setLatLng(livePos);
+      if (!gps || typeof gps.lat !== 'number' || typeof gps.lng !== 'number') return;
 
-        const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "";
-        const nextSpot = routeData[currentWaypointIndex + 1] ? routeData[currentWaypointIndex + 1].name : "Finish";
-        updateRiderPopup(currentSpot, nextSpot);
+      latestGPS = [gps.lat, gps.lng];
+      currentSpeed = Number(gps.speed) || 0;
+      cycleMarker.setLatLng(latestGPS);
 
-        updateHeroMarquee(gps.lat, gps.lng);
-        map.panTo(livePos);
-      }
+      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "";
+      const nextSpot = routeData[currentWaypointIndex + 1] ? routeData[currentWaypointIndex + 1].name : "Finish";
+
+      updateRiderPopup(currentSpot, nextSpot);
+      updateHeroMarquee(gps.lat, gps.lng);
+      updateDistanceDisplay();
+      updateDynamicRoadLines();
+      updateGPSFreshness(gps.timestamp);
+
+      if (autoFollowRider) map.panTo(latestGPS, {animate:true,duration:.35});
     });
+
+    setInterval(checkGPSFreshness, 5000);
 
     function renderTimeline() {
       const container = document.getElementById('timeline');
@@ -485,6 +580,7 @@
 
         let photos = Array.isArray(state.photos) ? state.photos : (state.photo ? [state.photo] : []);
 
+        // Halting Time calculation (inside stop card)
         let haltingTimeHtml = '';
         if (state.arrived && state.left) {
           const [arrH, arrM] = state.arrived.split(':').map(Number);
@@ -497,7 +593,8 @@
           }
         }
 
-        let travelDurationHtml = '';
+        // Travel Duration calculation (OUTSIDE the boxes, placed between items)
+        let travelDurationOutsideHtml = '';
         if (idx > 0) {
           const prevState = waypointsState[idx - 1] || {};
           const currState = waypointsState[idx] || {};
@@ -508,14 +605,13 @@
             if (tDiff >= 0) {
               const th = Math.floor(tDiff / 60);
               const tm = tDiff % 60;
-              travelDurationHtml = `<div class="transit-between-badge">🚗 Travel time from ${routeData[idx - 1].name}: <b>${th > 0 ? th + 'h ' : ''}${tm}m</b></div>`;
+              travelDurationOutsideHtml = `<div class="transit-between-badge">🚗 Travel time from ${routeData[idx - 1].name}: <b>${th > 0 ? th + 'h ' : ''}${tm}m</b></div>`;
             }
           }
         }
 
         item.innerHTML = `
           <div class="timeline-node"></div>
-          ${travelDurationHtml}
           <div class="timeline-card">
             <div class="place-name"><span>${idx + 1}. ${pt.name}</span>${isCurrentSpot ? '<span>🚴‍♂️</span>' : ''}</div>
             <div class="sched-time">Scheduled: <b>${pt.time}</b></div>
@@ -549,6 +645,7 @@
               </div>
             ` : ''}
           </div>
+          ${travelDurationOutsideHtml}
         `;
         container.appendChild(item);
       });
@@ -574,14 +671,21 @@
       const state = waypointsState[idx] || {};
       let existingPhotos = Array.isArray(state.photos) ? [...state.photos] : (state.photo ? [state.photo] : []);
 
-      for (let file of files) {
-        const base64Str = await compressImage(file);
-        existingPhotos.push(base64Str);
+      try {
+        for (let file of files) {
+          if (!file.type.startsWith('image/')) continue;
+          existingPhotos.push(await compressImage(file));
+        }
+        await db.ref(`liveTrack/waypoints/${idx}/photos`).set(existingPhotos);
+        await db.ref(`liveTrack/waypoints/${idx}/photo`).remove();
+        showToast(`${files.length} photo${files.length === 1 ? '' : 's'} added`);
+      } catch (err) {
+        console.error(err);
+        showToast('Photo upload failed. Please try again.');
+      } finally {
+        selectedIndexForPhoto = null;
+        e.target.value = '';
       }
-
-      db.ref(`liveTrack/waypoints/${idx}/photos`).set(existingPhotos);
-      db.ref(`liveTrack/waypoints/${idx}/photo`).remove();
-      selectedIndexForPhoto = null;
     });
 
     function compressImage(file) {
@@ -621,42 +725,59 @@
       const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const currentState = waypointsState[index] || {};
 
+      if (index !== currentWaypointIndex) {
+        showToast(`Please complete stop ${currentWaypointIndex + 1} first`);
+        return;
+      }
+
       if (actionType === 'arrive') {
+        if (currentState.arrived) return;
         currentState.arrived = timeString;
       } else if (actionType === 'left') {
+        if (!currentState.arrived || currentState.left) return;
         currentState.left = timeString;
       }
 
-      let nextIndex = currentWaypointIndex;
-      if (actionType === 'left') {
-        nextIndex = Math.min(index + 1, routeData.length - 1);
-      } else {
-        nextIndex = index;
-      }
+      const nextIndex = actionType === 'left'
+        ? Math.min(index + 1, routeData.length - 1)
+        : index;
 
       db.ref('liveTrack').update({
         index: nextIndex,
+        completed: actionType === 'left' && index === routeData.length - 1,
         waypoints: { ...waypointsState, [index]: currentState }
+      }).then(() => {
+        showToast(actionType === 'arrive' ? `Arrived at ${routeData[index].name}` : `Left ${routeData[index].name}`);
+      }).catch(err => {
+        console.error(err);
+        showToast('Could not update route state.');
       });
     }
 
     db.ref('liveTrack').on('value', (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        currentWaypointIndex = data.index || 0;
+        currentWaypointIndex = Math.max(0, Math.min(Number(data.index) || 0, routeData.length - 1));
         waypointsState = data.waypoints || {};
         renderTimeline();
         updateDynamicRoadLines();
         
         if (data.currentGPS) {
           updateHeroMarquee(data.currentGPS.lat, data.currentGPS.lng);
-        } else {
-          updateHeroMarquee();
         }
       }
     });
 
-    window.onload = () => { initMap(); renderTimeline(); };
+    window.onload = async () => {
+      try {
+        await initMap();
+        renderTimeline();
+      } catch (err) {
+        console.error('Initialization error:', err);
+        showToast('Map initialization failed. Please refresh.');
+      }
+    };
   </script>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
