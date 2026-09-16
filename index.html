@@ -248,25 +248,6 @@
       { id: 19, name: "Raghavendra Circle", time: "18:05", lat: 14.623083, lng: 74.827528 }
     ];
 
-    // Extra "via" points that don't appear as stops in the timeline — they exist only to
-    // nudge the OSRM road router onto the exact streets you want between certain stops.
-    // Key = index of the stop the segment starts FROM (in routeData above).
-    const routeViaPoints = {
-      0: [ // Devikere -> Maratikoppa: via Kaumudi Nursing Home, then Navachetana Hospital road
-        { lat: 14.6214606, lng: 74.8330012 }, // Kaumudi Nursing Home
-        { lat: 14.6220043, lng: 74.8330508 }  // Navachetana Hospital
-      ],
-      1: [ // Maratikoppa -> Bapuji Nagar: via Rama Hagde Clinic, Shrigandha Hospital, Ashwini Circle
-        { lat: 14.6262999, lng: 74.8343745 }, // Rama Hagde Clinic
-        { lat: 14.6236552, lng: 74.8333956 }, // Shrigandha Hospital
-        { lat: 14.6230950, lng: 74.8359535 }  // Kittur Rani Chennamma Circle (Ashwini Circle)
-      ],
-      3: [ // Chipgi -> Vivekananda Nagar: stay on the Sirsi-Hubli Highway the whole way
-        { lat: 14.6410348, lng: 74.8604155 }, // Sirsi-Hubli Rd, near Chipgi
-        { lat: 14.6310313, lng: 74.8518909 }  // Sirsi-Hubli Rd, near Vivekananda Nagar
-      ]
-    };
-
     let currentWaypointIndex = 0;
     let waypointsState = {}; 
     let map, cycleMarker;
@@ -282,6 +263,7 @@
     let lastGPSAt = 0;
     let routeTotalDistanceKm = 0;
     let coveredDistanceKm = 0;
+    let riderMarkers = {}; // deviceId -> L.marker, for showing every active GPS share on the map at once
 
     // Each phone that shares GPS (you, your friend, anyone else with the admin link)
     // gets its own persistent ID, stored on that phone only. This means two people
@@ -395,17 +377,7 @@
     }
 
     async function fetchOSRMRealRoads() {
-      // Build the full ordered point list: each stop, plus any via points right after it,
-      // so OSRM is forced through the specific roads/landmarks instead of picking its own path.
-      const orderedPoints = [];
-      routeData.forEach((p, idx) => {
-        orderedPoints.push({ lat: p.lat, lng: p.lng });
-        if (routeViaPoints[idx]) {
-          orderedPoints.push(...routeViaPoints[idx]);
-        }
-      });
-
-      const coordString = orderedPoints.map(p => `${p.lng},${p.lat}`).join(';');
+      const coordString = routeData.map(p => `${p.lng},${p.lat}`).join(';');
       const url = `https://router.project-osrm.org/route/v1/biking/${coordString}?overview=full&geometries=geojson`;
 
       try {
@@ -596,16 +568,19 @@
 
     db.ref('liveTrack/gpsSources').on('value', (snapshot) => {
       const sources = snapshot.val();
-      if (!sources) return;
+      if (!sources) {
+        Object.values(riderMarkers).forEach(m => map.removeLayer(m));
+        riderMarkers = {};
+        return;
+      }
 
-      // Multiple phones can be broadcasting at once (you + your friend). Always show
-      // whichever one sent the most recent update — so if your phone stops (turned off,
-      // no signal, etc.) but your friend's phone is still sharing, the map automatically
-      // switches to their location within seconds, with zero manual action needed.
+      // The freshest-updated source still drives the main stats: hero marquee,
+      // distance covered, road progress line, and the main cycle marker/auto-follow.
       let freshest = null;
-      Object.values(sources).forEach((src) => {
+      let freshestId = null;
+      Object.entries(sources).forEach(([id, src]) => {
         if (!src || typeof src.lat !== 'number' || typeof src.lng !== 'number') return;
-        if (!freshest || (src.timestamp || 0) > (freshest.timestamp || 0)) freshest = src;
+        if (!freshest || (src.timestamp || 0) > (freshest.timestamp || 0)) { freshest = src; freshestId = id; }
       });
       if (!freshest) return;
 
@@ -623,6 +598,39 @@
       updateGPSFreshness(freshest.timestamp);
 
       if (autoFollowRider) map.panTo(latestGPS, {animate:true,duration:.35});
+
+      // Every OTHER active GPS source (e.g. your friend's phone) gets shown too,
+      // as its own marker on the map, instead of being hidden behind the main one.
+      const activeIds = Object.keys(sources).filter((id) => {
+        const s = sources[id];
+        return s && typeof s.lat === 'number' && typeof s.lng === 'number';
+      });
+
+      activeIds.forEach((id) => {
+        if (id === freshestId) return; // that one's already shown via the main cycle marker
+        const src = sources[id];
+        const pos = [src.lat, src.lng];
+        if (riderMarkers[id]) {
+          riderMarkers[id].setLatLng(pos);
+        } else {
+          const extraIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚵', iconSize: [28, 28], iconAnchor: [14, 14] });
+          riderMarkers[id] = L.marker(pos, { icon: extraIcon }).addTo(map);
+        }
+        riderMarkers[id].bindPopup(`
+          <div class="rider-popup-card">
+            <div class="rider-popup-title">🚵 ADDITIONAL GPS</div>
+            <div class="speedometer-badge">⚡ ${Number(src.speed) || 0} KM/H</div>
+          </div>
+        `);
+      });
+
+      // Clean up markers for sources that are no longer active or just became the primary
+      Object.keys(riderMarkers).forEach((id) => {
+        if (!activeIds.includes(id) || id === freshestId) {
+          map.removeLayer(riderMarkers[id]);
+          delete riderMarkers[id];
+        }
+      });
     });
 
     setInterval(checkGPSFreshness, 5000);
