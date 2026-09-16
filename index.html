@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>Sirsi Ganesh Chaturthi Cycle Ride 2026 Live Tracker</title>
+  <title>Sirsi Ganpati Darshan Live Tracker</title>
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -62,10 +62,6 @@
       font-weight:800; font-size:0.85rem; border:none; cursor:pointer; margin-bottom:8px;
       box-shadow:0 4px 12px rgba(2,132,199,0.2); transition:all 0.2s ease;
     }
-    .gps-toggle-btn.friend-btn{
-      background:#16a34a;
-      box-shadow:0 4px 12px rgba(22,163,74,0.2);
-    }
 
     .timeline-container{ flex:1; overflow-y:auto; padding:14px 10px; -webkit-overflow-scrolling:touch; }
     .timeline-item{ position:relative; padding-left:26px; padding-bottom:12px; }
@@ -84,7 +80,7 @@
     .halting-time-badge{ font-size:.7rem; color:#d97706; font-weight:700; margin-top:4px; display:block; }
 
     .transit-between-badge{
-      margin: 8px 0 12px 0;
+      margin: 4px 0 10px 0;
       background: #e0f2fe;
       border: 1px dashed #0284c7;
       color: #0369a1;
@@ -140,7 +136,7 @@
 
   <header>
     <div class="brand-wrap">
-      <div class="brand-badge">⭕ ON THE WAY </div>
+      <div class="brand-badge">🚴‍♂️ DISPATCH</div>
       <div class="brand-title">
         <h1>SIRSI GANESH CHATURTHI CYCLE RIDE 2026</h1>
       </div>
@@ -150,7 +146,7 @@
 
   <div class="hero-status-bar">
     <div class="marquee-track" id="live-hero-status">
-      🔥 RIDER'S ON THE WAY !! STAY TUNED FOR FURTHER UPDATES !!
+      🔥 RIDER CHINMAY IS ON THE WAY FOR SIRSI GANPATI DARSHAN!
     </div>
   </div>
 
@@ -163,7 +159,6 @@
       <div class="control-panel">
         <div id="admin-gps-panel" style="display:none;">
           <button id="gps-btn" class="gps-toggle-btn" onclick="toggleLiveRiderGPS()">📡 START RIDER LIVE GPS</button>
-          <button id="friend-gps-btn" class="gps-toggle-btn friend-btn" onclick="toggleFriendGPS()">🛵 START FRIEND LIVE GPS</button>
         </div>
         <div class="metrics-grid">
           <div class="stat-card" id="status-card">
@@ -203,39 +198,37 @@
     const db = firebase.database();
 
     const routeData = [
-      { id: 1, name: "Devikere", time: "17:00", lat: 14.619805, lng: 74.832288 },
-      { id: 2, name: "Maratikoppa", time: "17:10", lat: 14.629540, lng: 74.836248 },
-      { id: 3, name: "Bapuji Nagar", time: "17:20", lat: 14.624583, lng: 74.840028 },
-      { id: 4, name: "Chipgi", time: "17:35", lat: 14.644139, lng: 74.862833 },
-      { id: 5, name: "Vivekananda Nagar", time: "17:45", lat: 14.630944, lng: 74.852139 },
-      { id: 6, name: "Ayappa Nagar", time: "17:55", lat: 14.618972, lng: 74.845333 },
-      { id: 7, name: "Hanumagiri", time: "18:00", lat: 14.614778, lng: 74.845194 },
-      { id: 8, name: "Ambedkar Bhavan", time: "18:05", lat: 14.618100, lng: 74.842500 },
-      { id: 9, name: "Kotekere", time: "18:08", lat: 14.615861, lng: 74.840944 },
-      { id: 10, name: "Marigudi", time: "18:15", lat: 14.612750, lng: 74.838694 },
-      { id: 11, name: "Rayar Pete", time: "18:20", lat: 14.610750, lng: 74.830917 },
-      { id: 12, name: "Shivaji Chowk", time: "18:25", lat: 14.614610, lng: 74.833974 },
-      { id: 13, name: "Auto Stand", time: "18:30", lat: 14.615389, lng: 74.834889 },
-      { id: 14, name: "Naganjaneya", time: "18:35", lat: 14.614583, lng: 74.835278 },
-      { id: 15, name: "Simpi Gulli", time: "18:40", lat: 14.614889, lng: 74.833083 },
-      { id: 16, name: "Unnemutt", time: "18:45", lat: 14.617139, lng: 74.832861 },
-      { id: 17, name: "Shraddanand Gulli", time: "18:50", lat: 14.616194, lng: 74.832417 },
-      { id: 18, name: "Zoo Circle", time: "19:00", lat: 14.618889, lng: 74.826778 },
-      { id: 19, name: "Police Station", time: "19:05", lat: 14.620028, lng: 74.825889 },
-      { id: 20, name: "Raghavendra Circle", time: "19:10", lat: 14.623083, lng: 74.827528 }
+      { id: 1, name: "Devikere", time: "16:00", lat: 14.619805, lng: 74.832288 },
+      { id: 2, name: "Maratikoppa", time: "16:10", lat: 14.629540, lng: 74.836248 },
+      { id: 3, name: "Bapuji Nagar", time: "16:20", lat: 14.624583, lng: 74.840028 },
+      { id: 4, name: "Chipgi", time: "16:35", lat: 14.644139, lng: 74.862833 },
+      { id: 5, name: "Vivekananda Nagar", time: "16:45", lat: 14.630944, lng: 74.852139 },
+      { id: 6, name: "Ayappa Nagar", time: "16:55", lat: 14.627220, lng: 74.848500 },
+      { id: 7, name: "Hanumagiri", time: "17:00", lat: 14.614778, lng: 74.845194 },
+      { id: 8, name: "Ambedkar Bhavana", time: "17:05", lat: 14.618100, lng: 74.842500 },
+      { id: 9, name: "Kotekere", time: "17:08", lat: 14.615861, lng: 74.840944 },
+      { id: 10, name: "Marigudi", time: "17:15", lat: 14.612750, lng: 74.838694 },
+      { id: 11, name: "Rayar Pete", time: "17:20", lat: 14.610750, lng: 74.830917 },
+      { id: 12, name: "Shivaji Chowk", time: "17:25", lat: 14.614610, lng: 74.833974 },
+      { id: 13, name: "Auto Stand", time: "17:30", lat: 14.614900, lng: 74.834500 },
+      { id: 14, name: "Naganjaneya", time: "17:35", lat: 14.614583, lng: 74.835278 },
+      { id: 15, name: "Simpi Gulli", time: "17:40", lat: 14.615250, lng: 74.834389 },
+      { id: 16, name: "Unnemutt", time: "17:45", lat: 14.617139, lng: 74.832861 },
+      { id: 17, name: "Shraddanand Gulli", time: "17:50", lat: 14.616194, lng: 74.832417 },
+      { id: 18, name: "Zoo Circle", time: "18:00", lat: 14.618889, lng: 74.826778 },
+      { id: 19, name: "Raghavendra Circle", time: "18:05", lat: 14.623083, lng: 74.827528 }
     ];
 
     let currentWaypointIndex = 0;
     let waypointsState = {}; 
-    let map, cycleMarker, friendMarker;
+    let map, cycleMarker;
     let mapMarkers = [];
     let watchId = null;
-    let friendWatchId = null;
     let selectedIndexForPhoto = null;
     let coveredPolyline, remainingPolyline;
     let fullRoadPath = [];
     let currentSpeed = 0;
-    let friendSpeed = 0;
+    let lastKnownGPS = null;
 
     function createPinIcon(color) {
       const svgPin = `<svg width="22" height="30" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z" fill="${color}"/></svg>`;
@@ -257,15 +250,9 @@
         mapMarkers.push(marker);
       });
 
-      // Main Rider Marker (Chinmay)
       const cycleIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🚴‍♂️', iconSize: [32, 32], iconAnchor: [16, 16] });
       cycleMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: cycleIcon }).addTo(map);
-      updateRiderPopup();
-
-      // Friend Marker (Nitin)
-      const friendIcon = L.divIcon({ className: 'cycle-marker-icon', html: '🛵', iconSize: [32, 32], iconAnchor: [16, 16] });
-      friendMarker = L.marker([routeData[0].lat, routeData[0].lng], { icon: friendIcon }).addTo(map);
-      updateFriendPopup();
+      updateRiderPopup("Devikere", "Maratikoppa");
 
       coveredPolyline = L.polyline([], { color: '#16a34a', weight: 5, opacity: 0.9 }).addTo(map);
       remainingPolyline = L.polyline([], { color: '#94a3b8', weight: 4, opacity: 0.7, dashArray: '6, 8' }).addTo(map);
@@ -309,29 +296,15 @@
       remainingPolyline.setLatLngs(remaining);
     }
 
-    function updateRiderPopup() {
-      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : (routeData[0] ? routeData[0].name : "Devikere");
-      const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
-      const nextSpot = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
-
+    function updateRiderPopup(fromLoc, toLoc) {
       cycleMarker.bindPopup(`
         <div class="rider-popup-card">
-          <div class="rider-popup-title">🚴‍♂️ CHINMAY</div>
+          <div class="rider-popup-title">🚴‍♂️ CHINMAY (RIDER)</div>
           <div class="speedometer-badge">⚡ ${currentSpeed} KM/H</div>
           <div style="font-size:0.75rem; color:#475569; margin-top:4px;">
-            <b>Next Destination:</b> ${nextSpot}<br/>
-            <b>From:</b> ${currentSpot}
+            <b>Next Destination:</b> ${toLoc || "Destination"}<br/>
+            <b>From:</b> ${fromLoc || "Start"}
           </div>
-        </div>
-      `);
-    }
-
-    function updateFriendPopup() {
-      friendMarker.bindPopup(`
-        <div class="rider-popup-card">
-          <div class="rider-popup-title" style="color:#16a34a;">🛵 NITIN </div>
-          <div class="speedometer-badge">⚡ ${friendSpeed} KM/H</div>
-          <div style="font-size:0.75rem; color:#475569; margin-top:4px;">Tracking live location...</div>
         </div>
       `);
     }
@@ -347,32 +320,59 @@
       return R * c;
     }
 
-    function updateHeroMarquee(currentLat, currentLng) {
-      const marqueeEl = document.getElementById('live-hero-status');
-      const currentState = waypointsState[currentWaypointIndex] || {};
+    function updateHeroMarquee(lat, lng) {
+      const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
+      const nextTarget = routeData[nextIndex];
+      const nextSpotName = nextTarget ? nextTarget.name : "Destination";
 
-      const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : (routeData[0] ? routeData[0].name : "Devikere");
+      let useLat = lat || (lastKnownGPS ? lastKnownGPS.lat : null);
+      let useLng = lng || (lastKnownGPS ? lastKnownGPS.lng : null);
 
-      if (currentState.arrived && !currentState.left) {
-        marqueeEl.innerText = `📍 ARRIVED AT ${currentSpot.toUpperCase()}! 🛑 RIDE REBEGINS SOON | Speed: ${currentSpeed} KM/H`;
-        return;
+      if (!useLat || !useLng) {
+        const curPt = routeData[currentWaypointIndex];
+        if (curPt) { useLat = curPt.lat; useLng = curPt.lng; }
       }
 
-      const nextIndex = Math.min(currentWaypointIndex + 1, routeData.length - 1);
-      const nextSpot = routeData[nextIndex] ? routeData[nextIndex].name : "Destination";
-      const nextTarget = routeData[nextIndex];
-
       let distanceStr = "";
-      if (nextTarget && currentLat && currentLng) {
-        const distMeters = calculateDistance(currentLat, currentLng, nextTarget.lat, nextTarget.lng);
+      if (nextTarget && useLat && useLng) {
+        const distMeters = calculateDistance(useLat, useLng, nextTarget.lat, nextTarget.lng);
         if (distMeters >= 1000) {
-          distanceStr = ` | Distance to next stop (${nextSpot}): ${(distMeters / 1000).toFixed(2)} KM`;
+          distanceStr = ` | Distance to next stop (${nextSpotName}): ${(distMeters / 1000).toFixed(2)} KM`;
         } else {
-          distanceStr = ` | Distance to next stop (${nextSpot}): ${Math.round(distMeters)} m`;
+          distanceStr = ` | Distance to next stop (${nextSpotName}): ${Math.round(distMeters)} m`;
         }
       }
 
-      marqueeEl.innerText = `🔥 RIDER'S ON THE WAY! MOVING TOWARDS ➔ ${currentSpot} | Speed: ${currentSpeed} KM/H`;
+      // Check backwards through waypoints to find the most recent stop with an action
+      let statusMsg = "";
+      let activeIdx = -1;
+      let actionState = null;
+
+      for (let i = routeData.length - 1; i >= 0; i--) {
+        if (waypointsState[i] && (waypointsState[i].left || waypointsState[i].arrived)) {
+          activeIdx = i;
+          actionState = waypointsState[i];
+          break;
+        }
+      }
+
+      if (activeIdx !== -1) {
+        const spotName = routeData[activeIdx].name;
+        if (actionState.left) {
+          const nextStopName = routeData[Math.min(activeIdx + 1, routeData.length - 1)].name;
+          statusMsg = `🚀 LEFT: ${spotName} ➔ ${nextStopName}`;
+        } else if (actionState.arrived) {
+          statusMsg = `📍 ARRIVED AT ${spotName}`;
+        }
+      } else {
+        const currentSpotName = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "Sirsi";
+        statusMsg = `🔥 ON THE WAY TO ${currentSpotName}`;
+      }
+
+      const marqueeEl = document.getElementById('live-hero-status');
+      if (marqueeEl) {
+        marqueeEl.innerText = `${statusMsg}${distanceStr} | Speed: ${currentSpeed} KM/H`;
+      }
     }
 
     function updateScheduleStatusDisplay() {
@@ -393,7 +393,7 @@
         }
       }
 
-      const scheduledTimeStr = routeData[checkIdx] ? routeData[checkIdx].time : "17:00";
+      const scheduledTimeStr = routeData[checkIdx].time;
       const actualArrivalStr = activeState.arrived;
 
       if (!actualArrivalStr) {
@@ -455,6 +455,7 @@
           (position) => {
             const { latitude, longitude, speed } = position.coords;
             currentSpeed = speed ? (speed * 3.6).toFixed(1) : 0;
+            lastKnownGPS = { lat: latitude, lng: longitude };
 
             db.ref('liveTrack/currentGPS').set({
               lat: latitude,
@@ -463,7 +464,7 @@
               timestamp: Date.now()
             });
 
-            btn.innerText = "🛑 STOP RIDER GPS (TRACKING ON)";
+            btn.innerText = "🛑 STOP RIDER LIVE GPS (TRACKING ON)";
             btn.style.background = "#dc2626";
           },
           (error) => {
@@ -479,62 +480,20 @@
       }
     }
 
-    function toggleFriendGPS() {
-      const btn = document.getElementById('friend-gps-btn');
-
-      if (!navigator.geolocation) {
-        alert("GPS permission not supported in your browser.");
-        return;
-      }
-
-      if (friendWatchId === null) {
-        friendWatchId = navigator.geolocation.watchPosition(
-          (position) => {
-            const { latitude, longitude, speed } = position.coords;
-            friendSpeed = speed ? (speed * 3.6).toFixed(1) : 0;
-
-            db.ref('liveTrack/friendGPS').set({
-              lat: latitude,
-              lng: longitude,
-              speed: friendSpeed,
-              timestamp: Date.now()
-            });
-
-            btn.innerText = "🛑 STOP FRIEND GPS (TRACKING ON)";
-            btn.style.background = "#dc2626";
-          },
-          (error) => {
-            alert("GPS Error: " + error.message);
-          },
-          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-        );
-      } else {
-        navigator.geolocation.clearWatch(friendWatchId);
-        friendWatchId = null;
-        btn.innerText = "🛵 START RIDER-2 LIVE GPS";
-        btn.style.background = "#16a34a";
-      }
-    }
-
     db.ref('liveTrack/currentGPS').on('value', (snapshot) => {
       const gps = snapshot.val();
       if (gps && gps.lat && gps.lng) {
+        lastKnownGPS = { lat: gps.lat, lng: gps.lng };
         const livePos = [gps.lat, gps.lng];
         currentSpeed = gps.speed || 0;
         cycleMarker.setLatLng(livePos);
 
-        updateRiderPopup();
-        updateHeroMarquee(gps.lat, gps.lng);
-      }
-    });
+        const currentSpot = routeData[currentWaypointIndex] ? routeData[currentWaypointIndex].name : "";
+        const nextSpot = routeData[currentWaypointIndex + 1] ? routeData[currentWaypointIndex + 1].name : "Finish";
+        updateRiderPopup(currentSpot, nextSpot);
 
-    db.ref('liveTrack/friendGPS').on('value', (snapshot) => {
-      const gps = snapshot.val();
-      if (gps && gps.lat && gps.lng) {
-        const friendPos = [gps.lat, gps.lng];
-        friendSpeed = gps.speed || 0;
-        friendMarker.setLatLng(friendPos);
-        updateFriendPopup();
+        updateHeroMarquee(gps.lat, gps.lng);
+        map.panTo(livePos);
       }
     });
 
@@ -563,7 +522,7 @@
           }
         }
 
-        let travelDurationOutsideHtml = '';
+        let travelDurationHtml = '';
         if (idx > 0) {
           const prevState = waypointsState[idx - 1] || {};
           const currState = waypointsState[idx] || {};
@@ -574,13 +533,14 @@
             if (tDiff >= 0) {
               const th = Math.floor(tDiff / 60);
               const tm = tDiff % 60;
-              travelDurationOutsideHtml = `<div class="transit-between-badge">🚗 Travel time from ${routeData[idx - 1].name}: <b>${th > 0 ? th + 'h ' : ''}${tm}m</b></div>`;
+              travelDurationHtml = `<div class="transit-between-badge">🚗 Travel time from ${routeData[idx - 1].name}: <b>${th > 0 ? th + 'h ' : ''}${tm}m</b></div>`;
             }
           }
         }
 
         item.innerHTML = `
           <div class="timeline-node"></div>
+          ${travelDurationHtml}
           <div class="timeline-card">
             <div class="place-name"><span>${idx + 1}. ${pt.name}</span>${isCurrentSpot ? '<span>🚴‍♂️</span>' : ''}</div>
             <div class="sched-time">Scheduled: <b>${pt.time}</b></div>
@@ -614,7 +574,6 @@
               </div>
             ` : ''}
           </div>
-          ${travelDurationOutsideHtml}
         `;
         container.appendChild(item);
       });
@@ -700,10 +659,17 @@
         nextIndex = index;
       }
 
+      waypointsState[index] = currentState;
+
       db.ref('liveTrack').update({
         index: nextIndex,
-        waypoints: { ...waypointsState, [index]: currentState }
+        waypoints: waypointsState
       });
+
+      currentWaypointIndex = nextIndex;
+      updateHeroMarquee();
+      updateDynamicRoadLines();
+      renderTimeline();
     }
 
     db.ref('liveTrack').on('value', (snapshot) => {
@@ -713,12 +679,12 @@
         waypointsState = data.waypoints || {};
         renderTimeline();
         updateDynamicRoadLines();
-        updateRiderPopup();
         
         if (data.currentGPS) {
+          lastKnownGPS = { lat: data.currentGPS.lat, lng: data.currentGPS.lng };
           updateHeroMarquee(data.currentGPS.lat, data.currentGPS.lng);
         } else {
-          updateHeroMarquee(null, null);
+          updateHeroMarquee();
         }
       }
     });
@@ -727,4 +693,3 @@
   </script>
 </body>
 </html>
-
